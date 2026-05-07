@@ -135,7 +135,7 @@ async () => {
 
 ### 2. Install
 ```bash
-git clone <repo-url>
+git clone https://github.com/zemerick1/central-mind.git
 cd central-mind
 pip install -e .
 ```
