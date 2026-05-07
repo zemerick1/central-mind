@@ -242,8 +242,8 @@ Most MCP-compatible IDEs use a `mcp_config.json` or `mcp_settings.json` file. Th
 >
 > **Switches (4 Online)**
 >
-> **6300** (1 client)
-> - Micro-Computer (XX:XX:XX:XX:XX:XX / 169.254.208.226)
+>6300 (1 client)
+>* Micro-Computer (XX:XX:XX:XX:XX:XX / 169.254.208.226) (Note: This appears to be a device that fell back to an APIPA address)
 >
 > **Aruba-2930F-8G-Central** — 0 directly connected clients detected
 
