@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "centralmind": {
+      "command": "python",
+      "args": ["-m", "centralmind"],
+      "env": {
+        "CENTRAL_BASE_URL": "https://internal.api.central.arubanetworks.com",
+        "CENTRAL_CLIENT_ID": "your-client-id-here",
+        "CENTRAL_CLIENT_SECRET": "your-client-secret-here",
+        "CENTRALMIND_API_MODE": "readonly",
+        "CENTRALMIND_RATE_LIMIT": "30",
+        "CENTRALMIND_MAX_CONCURRENT": "5"
+      }
+    }
+  },
+  "_comment": "Add this to ~/Library/Application Support/Claude/claude_desktop_config.json on macOS or %APPDATA%/Claude/claude_desktop_config.json on Windows. Replace credentials with your actual Aruba Central OAuth2 client ID and secret."
+}

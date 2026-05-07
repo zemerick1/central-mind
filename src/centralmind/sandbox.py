@@ -1,0 +1,491 @@
+"""Deno sandbox for secure JavaScript code execution against Aruba Central API."""
+
+import asyncio
+import json
+import logging
+import os
+import platform
+import signal
+import tempfile
+import time
+from collections import deque
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+IS_WINDOWS = platform.system() == "Windows"
+
+logger = logging.getLogger(__name__)
+
+# Maximum chars to log for stdout/stderr (security: prevent data leakage)
+MAX_LOG_CHARS = 200
+
+
+def _js_safe_string(value: str) -> str:
+    """Safely encode a string for embedding in JavaScript source code."""
+    return json.dumps(value)
+
+
+def _truncate_for_log(text: str, max_chars: int = MAX_LOG_CHARS) -> str:
+    """Truncate text for logging to prevent sensitive data leakage."""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars] + f"... [truncated, {len(text)} total chars]"
+
+
+def _scrub_token(text: str, token: str) -> str:
+    """Remove API token from text to prevent leakage in errors/logs."""
+    if not token:
+        return text
+    return text.replace(token, "[REDACTED]")
+
+
+def _scrub_dict(d: Any, token: str) -> Any:
+    """Recursively scrub token from all string values in a dict/list."""
+    if not token:
+        return d
+    if isinstance(d, str):
+        return _scrub_token(d, token)
+    if isinstance(d, dict):
+        return {k: _scrub_dict(v, token) for k, v in d.items()}
+    if isinstance(d, list):
+        return [_scrub_dict(item, token) for item in d]
+    return d
+
+
+# Valid API mode → allowed HTTP methods mapping
+API_MODE_METHODS = {
+    "readonly": ["GET"],
+    "readwrite": ["GET", "POST", "PUT", "PATCH"],
+    "all": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+}
+
+
+class DenoSandbox:
+    """Secure sandbox for executing JavaScript code in Deno."""
+
+    # Maximum output size (1MB) to prevent context flooding
+    MAX_OUTPUT_BYTES = 1 * 1024 * 1024
+
+    def __init__(
+        self,
+        deno_path: str,
+        api_host: str = "internal.api.central.arubanetworks.com",
+        timeout: int = 30,
+        api_mode: str = "readonly",
+        rate_limit: int = 30,
+        max_concurrent: int = 5,
+        obfuscated: bool = False,
+    ):
+        """Initialize sandbox with path to Deno binary and security settings.
+        
+        Args:
+            deno_path: Path to Deno binary
+            timeout: Max execution time in seconds
+            api_mode: "readonly" (GET), "readwrite" (GET+POST+PUT+PATCH), "all" (includes DELETE)
+            rate_limit: Max executions per minute (0 = unlimited)
+            max_concurrent: Max parallel Deno processes
+            obfuscated: If True, inject de-obfuscation mapping so obfuscated
+                paths are translated back to real API paths before fetch.
+        """
+        self.deno_path = deno_path
+        self.api_host = api_host
+        self.timeout = timeout
+        self.api_mode = api_mode
+        self.allowed_methods = API_MODE_METHODS.get(api_mode, API_MODE_METHODS["readonly"])
+        self.rate_limit = rate_limit
+        self.max_concurrent = max_concurrent
+        self.obfuscated = obfuscated
+        
+        # Rate limiting state
+        self._request_times: deque = deque()
+        # Concurrency semaphore
+        self._semaphore = asyncio.Semaphore(max_concurrent)
+        
+        # Verify Deno exists
+        if not Path(deno_path).exists():
+            raise FileNotFoundError(f"Deno not found at {deno_path}")
+        
+        # Validate api_mode
+        if api_mode not in API_MODE_METHODS:
+            raise ValueError(f"Invalid api_mode: {api_mode}. Must be one of: {list(API_MODE_METHODS.keys())}")
+        
+        logger.info(f"Sandbox initialized: api_mode={api_mode}, methods={self.allowed_methods}, "
+                     f"rate_limit={rate_limit}/min, max_concurrent={max_concurrent}, "
+                     f"obfuscated={obfuscated}")
+
+    def _deobfuscation_js(self) -> str:
+        """Return JS snippet to de-obfuscate paths, or empty string if not obfuscated."""
+        if not self.obfuscated:
+            return ""
+        from .obfuscator import generate_deobfuscation_js
+        return generate_deobfuscation_js()
+    
+    def _check_rate_limit(self) -> Optional[str]:
+        """Check if rate limit is exceeded. Returns error message or None."""
+        if self.rate_limit <= 0:
+            return None
+        
+        now = time.monotonic()
+        # Remove entries older than 60 seconds
+        while self._request_times and (now - self._request_times[0]) > 60:
+            self._request_times.popleft()
+        
+        if len(self._request_times) >= self.rate_limit:
+            oldest = self._request_times[0]
+            wait_seconds = 60 - (now - oldest)
+            return (f"Rate limit exceeded ({self.rate_limit} requests/minute). "
+                    f"Try again in {wait_seconds:.0f} seconds.")
+        
+        self._request_times.append(now)
+        return None
+
+    async def _run_deno(
+        self,
+        js_code: str,
+        args: list[str],
+        stdin_data: bytes = None,
+        token_to_scrub: str = None,
+    ) -> Dict[str, Any]:
+        """Run JavaScript code in Deno with specified arguments.
+        
+        Args:
+            js_code: JavaScript code to execute
+            args: Deno command line arguments
+            stdin_data: Optional data to pipe to stdin (for secure token passing)
+            token_to_scrub: Optional token to scrub from all output (security)
+        """
+        # Check rate limit
+        rate_error = self._check_rate_limit()
+        if rate_error:
+            return {"error": rate_error}
+        
+        # Acquire concurrency semaphore
+        async with self._semaphore:
+            return await self._run_deno_inner(js_code, args, stdin_data, token_to_scrub)
+
+    async def _run_deno_inner(
+        self,
+        js_code: str,
+        args: list[str],
+        stdin_data: bytes = None,
+        token_to_scrub: str = None,
+    ) -> Dict[str, Any]:
+        """Inner Deno execution (after rate limit and concurrency checks)."""
+        # BUG 2 FIX: Create temp file with secure permissions and write atomically
+        # Write content in the same block to prevent TOCTOU race
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".js",
+            delete=False,
+        ) as tmp:
+            tmp_path = tmp.name
+            # Set secure permissions BEFORE writing content (0o600 = owner read/write only)
+            # Skip on Windows where POSIX chmod is not supported
+            if not IS_WINDOWS:
+                os.chmod(tmp_path, 0o600)
+            # Write content in the same block (no TOCTOU race)
+            tmp.write(js_code)
+            tmp.flush()
+        
+        try:
+            # Build Deno command with security flags:
+            # --no-prompt: prevent interactive prompts
+            # --v8-flags=--max-old-space-size=256: limit heap to 256MB (prevents memory exhaustion attacks)
+            # Note: Dynamic imports are still possible but token remains in IIFE closure
+            cmd = [
+                self.deno_path,
+                "run",
+                "--no-prompt",
+                "--v8-flags=--max-old-space-size=256",
+            ] + args + [tmp_path]
+            
+            logger.debug(f"Running Deno: {' '.join(cmd)}")
+            
+            # Execute Deno with stdin pipe if we have data to send
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=asyncio.subprocess.PIPE if stdin_data else None,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            
+            pid = process.pid
+            
+            # Wait with timeout
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(input=stdin_data),
+                    timeout=self.timeout,
+                )
+            except asyncio.TimeoutError:
+                # SIGTERM first
+                process.kill()
+                # Wait briefly for graceful termination
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=0.5)
+                except asyncio.TimeoutError:
+                    # SIGKILL as fallback (cannot be caught)
+                    try:
+                        if IS_WINDOWS:
+                            process.kill()  # On Windows, use process.kill() directly
+                        else:
+                            os.kill(pid, signal.SIGKILL)
+                    except (ProcessLookupError, OSError):
+                        pass  # Process already dead
+                await process.wait()
+                return {
+                    "error": f"Execution timed out after {self.timeout} seconds",
+                    "stderr": "",
+                }
+            
+            # Decode output
+            stdout_text = stdout.decode("utf-8")
+            stderr_text = stderr.decode("utf-8")
+            
+            # Scrub token from output BEFORE any logging or processing
+            if token_to_scrub:
+                stdout_text = _scrub_token(stdout_text, token_to_scrub)
+                stderr_text = _scrub_token(stderr_text, token_to_scrub)
+            
+            # Log stderr if present (truncated for security)
+            if stderr_text:
+                logger.debug(f"Deno stderr: {_truncate_for_log(stderr_text)}")
+            
+            # Enforce output size limit to prevent context flooding
+            if len(stdout_text) > self.MAX_OUTPUT_BYTES:
+                return {
+                    "error": f"Output too large ({len(stdout_text)} bytes, max {self.MAX_OUTPUT_BYTES}). "
+                             "Filter or summarize results in your code before returning.",
+                    "stderr": stderr_text,
+                }
+            
+            # Parse the LAST line of stdout as JSON (ignore any prior console.log output)
+            # The wrapper template always outputs the result as the final console.log
+            stdout_lines = stdout_text.strip().splitlines()
+            
+            # Try to find valid JSON starting from the last line, working backwards
+            # to handle pretty-printed JSON (multi-line)
+            json_text = None
+            for i in range(len(stdout_lines)):
+                candidate = "\n".join(stdout_lines[i:])
+                try:
+                    json.loads(candidate)
+                    json_text = candidate
+                    break
+                except json.JSONDecodeError:
+                    continue
+            
+            if json_text is None:
+                logger.error(f"No valid JSON found in Deno output")
+                logger.error(f"stdout: {_truncate_for_log(stdout_text)}")
+                result = {
+                    "error": "No valid JSON in output",
+                    "stderr": stderr_text,
+                    "stdout": stdout_text[:500],
+                }
+                # Scrub result dict
+                if token_to_scrub:
+                    result = _scrub_dict(result, token_to_scrub)
+                return result
+            
+            try:
+                result = json.loads(json_text)
+                # Scrub token from result dict
+                if token_to_scrub:
+                    result = _scrub_dict(result, token_to_scrub)
+                return result
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse Deno output as JSON: {e}")
+                logger.error(f"stdout: {_truncate_for_log(stdout_text)}")
+                result = {
+                    "error": f"Invalid JSON output: {str(e)}",
+                    "stderr": stderr_text,
+                    "stdout": stdout_text[:500],
+                }
+                # Scrub result dict
+                if token_to_scrub:
+                    result = _scrub_dict(result, token_to_scrub)
+                return result
+        
+        finally:
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete temp file {tmp_path}: {e}")
+
+    async def run_search(self, code: str, spec_path: str) -> Dict[str, Any]:
+        """Execute JavaScript code with `spec` available as a global.
+        
+        Args:
+            code: JavaScript async arrow function to execute
+            spec_path: Path to the resolved OpenAPI spec JSON file
+        
+        Returns:
+            Result of the function execution or error dict
+        """
+        # Verify spec file exists and get absolute path
+        spec_file = Path(spec_path).resolve()
+        if not spec_file.exists():
+            return {
+                "error": f"Spec file not found: {spec_path}",
+                "stderr": "",
+            }
+        
+        # Build JavaScript wrapper (use file:// URL for Deno)
+        # On Windows, Path.resolve() gives C:\... which needs file:///C:/... format
+        if IS_WINDOWS:
+            spec_url = spec_file.as_uri()  # Properly handles drive letters
+        else:
+            spec_url = f"file://{spec_file}"
+        js_template = f'''import spec from "{spec_url}" with {{ type: "json" }};
+
+// Freeze output function so user code can't override it
+const __output = console.log.bind(console);
+
+const fn = {code};
+
+try {{
+  const result = await fn();
+  __output(JSON.stringify(result, null, 2));
+}} catch(e) {{
+  __output(JSON.stringify({{error: e.message, stack: e.stack}}));
+}}
+'''
+        
+        # Deno permissions: deny network, allow read for spec only
+        deno_args = [
+            "--deny-net",
+            f"--allow-read={spec_file}",
+            "--deny-write",
+            "--deny-env",
+            "--deny-run",
+        ]
+        
+        return await self._run_deno(js_template, deno_args)
+
+    async def run_execute(
+        self,
+        code: str,
+        api_token: str,
+    ) -> Dict[str, Any]:
+        """Execute JavaScript code with `central` client available.
+        
+        Args:
+            code: JavaScript async arrow function to execute
+            api_token: Aruba Central Bearer access token
+        
+        Returns:
+            Result of the function execution or error dict
+        """
+        # BUG 5: Validate token (prevent header injection via \r\n)
+        if not api_token or not api_token.strip():
+            return {"error": "API token is empty"}
+        if any(c in api_token for c in '\r\n\x00'):
+            return {"error": "API token contains invalid characters"}
+        
+        # Build JavaScript wrapper with central client
+        # SECURITY: Token is passed via stdin, NOT embedded in source code
+        # This prevents the token from appearing in temp files on disk
+        safe_host = _js_safe_string(self.api_host)
+        js_methods = json.dumps(self.allowed_methods)
+        # IIFE pattern ensures _token is in closure scope, unreachable from user code
+        # Also wraps stdin read in try/catch for proper error handling
+        js_template = f'''// Freeze output function so user code can't override it
+const __output = console.log.bind(console);
+
+// SECURITY: Token read and central object created inside IIFE
+// _token only exists in closure scope, inaccessible to user code
+const central = await (async () => {{
+  let _token;
+  try {{
+    _token = await new Response(Deno.stdin.readable).text();
+  }} catch(e) {{
+    __output(JSON.stringify({{error: "Failed to read authentication token: " + e.message}}));
+    Deno.exit(1);
+  }}
+  
+  const __allowedMethods = Object.freeze({js_methods});
+  
+  return Object.freeze({{
+    // Allowed HTTP methods (configured server-side, cannot be bypassed)
+    get allowedMethods() {{ return __allowedMethods; }},
+
+    async request({{method = "GET", path, body, params}}) {{
+      const _host = {safe_host};
+      const _baseUrl = `https://${{_host}}`;
+      
+      // Enforce allowed HTTP methods (server-side policy)
+      const upperMethod = method.toUpperCase();
+      if (!__allowedMethods.includes(upperMethod)) {{
+        throw new Error(
+          `Method ${{upperMethod}} is not allowed. Server is in "${{'{self.api_mode}'}}" mode. ` +
+          `Allowed methods: ${{__allowedMethods.join(", ")}}. ` +
+          `Contact the admin to change CENTRALMIND_API_MODE if write access is needed.`
+        );
+      }}
+      
+{self._deobfuscation_js()}
+      const url = new URL(`${{_baseUrl}}${{path}}`);
+      
+      if (params) {{
+        Object.entries(params).forEach(([k, v]) => {{
+          if (v !== undefined && v !== null) {{
+            url.searchParams.set(k, String(v));
+          }}
+        }});
+      }}
+      
+      const opts = {{
+        method: upperMethod,
+        headers: {{
+          'Authorization': `Bearer ${{_token}}`,
+          'Content-Type': 'application/json',
+        }},
+      }};
+      
+      if (body && upperMethod !== 'GET') {{
+        opts.body = JSON.stringify(body);
+      }}
+      
+      const resp = await fetch(url.toString(), opts);
+      const data = await resp.json();
+      
+      if (!resp.ok) {{
+        throw new Error(`Aruba Central API error ${{resp.status}}: ${{JSON.stringify(data)}}`);
+      }}
+      
+      return data;
+    }}
+  }});
+}})();
+
+// _token does NOT exist here - it's inside the IIFE closure
+// Alias for backward compatibility
+const mist = central;
+const fn = {code};
+
+try {{
+  const result = await fn();
+  __output(JSON.stringify(result, null, 2));
+}} catch(e) {{
+  __output(JSON.stringify({{error: e.message, stack: e.stack}}));
+}}
+'''
+        
+        # Deno permissions: allow network for Aruba Central host only
+        deno_args = [
+            f"--allow-net={self.api_host}",
+            "--deny-read",
+            "--deny-write",
+            "--deny-env",
+            "--deny-run",
+        ]
+        
+        # Pass token via stdin and scrub from all output
+        return await self._run_deno(
+            js_template,
+            deno_args,
+            stdin_data=api_token.encode("utf-8"),
+            token_to_scrub=api_token,
+        )

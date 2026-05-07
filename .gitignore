@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment (secrets)
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated/resolved specs
+spec/openAPI.resolved.json
+spec/openAPI.resolved.json.preConvert
+
+# Large source files (Postman collections)
+spec/*.postman_collection.json
+spec/openAPI.json.old
