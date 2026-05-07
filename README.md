@@ -151,7 +151,9 @@ cp .env.example .env
 python -m centralmind.spec_resolver spec/openAPI.json spec/openAPI.resolved.json
 ```
 
-### 5. Add to Claude Desktop
+### 5a. Add to Claude Desktop
+
+Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
@@ -169,7 +171,79 @@ python -m centralmind.spec_resolver spec/openAPI.json spec/openAPI.resolved.json
 }
 ```
 
-See `claude_desktop_config.example.json` for a full example.
+### 5b. Other MCP Clients (Antigravity, Cursor, etc.)
+
+Most MCP-compatible IDEs use a `mcp_config.json` or `mcp_settings.json` file. The format is identical — add a `centralmind` entry to the `mcpServers` object:
+
+```json
+{
+  "mcpServers": {
+    "centralmind": {
+      "command": "python",
+      "args": [
+        "-m",
+        "centralmind"
+      ],
+      "env": {
+        "CENTRAL_BASE_URL": "https://internal.api.central.arubanetworks.com",
+        "CENTRAL_CLIENT_ID": "your-client-id",
+        "CENTRAL_CLIENT_SECRET": "your-client-secret",
+        "CENTRALMIND_API_MODE": "readonly"
+      }
+    }
+  }
+}
+```
+
+> **Note:** Environment variables set in `env` take priority over a `.env` file. The `.env` file works if the MCP client's working directory is the project root, but most clients don't guarantee that — so setting credentials in the MCP config is the reliable approach.
+
+## Real-World Examples
+
+### Configuration: Create a static route without assigning it
+
+**Prompt:**
+> Configure a static route of 0.0.0.0/0 192.168.63.1 in the library but do not assign it anywhere.
+
+**Output:**
+> I have successfully created the default static route (0.0.0.0/0 with the next-hop 192.168.63.1) in the Aruba Central Library.
+>
+> It is saved under a shared profile named `default-route-lib` and is ready to be used or referenced, but it has not been applied or assigned to any of your devices, groups, or sites.
+
+### Monitoring: Device inventory with connected clients
+
+**Prompt:**
+> How many devices do I have online and what clients are connected to them?
+
+**Output:**
+> You currently have 10 devices online. Here is the breakdown of the devices and the clients connected to them:
+>
+> **Access Points (3 Online)**
+>
+> **AP-Livingroom01** (10 clients)
+> - Dishwasher (XX:XX:XX:XX:XX:XX / 172.16.17.43)
+> - SmartPlug-1 (XX:XX:XX:XX:XX:XX / 172.16.17.15)
+> - IoT-Device-1 (XX:XX:XX:XX:XX:XX / 172.16.17.45)
+> - AirPurifier (XX:XX:XX:XX:XX:XX / 172.16.17.12)
+> - RobotVacuum (XX:XX:XX:XX:XX:XX / 172.16.17.42)
+> - Mac-Computer (XX:XX:XX:XX:XX:XX / 172.16.17.44)
+> - Phone-1 (XX:XX:XX:XX:XX:XX / 172.16.17.36)
+> - Phone-2 (XX:XX:XX:XX:XX:XX / 172.16.17.41)
+> - *...and more*
+>
+> **Central-AP01** (9 clients)
+> - Smart-Bulb-1 (XX:XX:XX:XX:XX:XX / 172.16.17.32)
+> - Media-Player (XX:XX:XX:XX:XX:XX / 172.16.17.37)
+> - Laptop-1 (XX:XX:XX:XX:XX:XX / 172.16.17.22)
+> - Gaming-PC (XX:XX:XX:XX:XX:XX / 172.16.17.53)
+> - Smart-Speaker (XX:XX:XX:XX:XX:XX / 172.16.17.25)
+> - *...and more*
+>
+> **Switches (4 Online)**
+>
+> **6300** (1 client)
+> - Micro-Computer (XX:XX:XX:XX:XX:XX / 169.254.208.226)
+>
+> **Aruba-2930F-8G-Central** — 0 directly connected clients detected
 
 ## Security
 
