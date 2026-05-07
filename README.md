@@ -75,7 +75,7 @@ The progressive disclosure pattern from MistMind makes all of this manageable:
 └──────────────┬──────────────────────┬───────────────────────┘
                │                      │
                ▼                      ▼
-    spec/openAPI.resolved.json    internal.api.central.arubanetworks.com
+    spec/openAPI.resolved.json    <your-cluster>.central.arubanetworks.com
          (25MB, local)           (REST API, Bearer auth)
 ```
 
@@ -146,6 +146,8 @@ cp .env.example .env
 # Edit .env with your Aruba Central client ID and secret
 ```
 
+> **Finding your base URL:** The API gateway URL varies by geographical cluster (e.g. `internal-apigw`, `apigw-uswest4`, `apigw-eucentral3`). See [Getting Started with REST APIs](https://developer.arubanetworks.com/new-central/docs/getting-started-with-rest-apis) for instructions on finding the correct base URL for your account.
+
 ### 4. Resolve the OpenAPI Spec
 ```bash
 python -m centralmind.spec_resolver spec/openAPI.json spec/openAPI.resolved.json
@@ -161,7 +163,7 @@ Add to your `claude_desktop_config.json`:
       "command": "python",
       "args": ["-m", "centralmind"],
       "env": {
-        "CENTRAL_BASE_URL": "https://internal.api.central.arubanetworks.com",
+        "CENTRAL_BASE_URL": "https://<your-cluster>.central.arubanetworks.com",
         "CENTRAL_CLIENT_ID": "your-client-id",
         "CENTRAL_CLIENT_SECRET": "your-client-secret",
         "CENTRALMIND_API_MODE": "readonly"
@@ -185,7 +187,7 @@ Most MCP-compatible IDEs use a `mcp_config.json` or `mcp_settings.json` file. Th
         "centralmind"
       ],
       "env": {
-        "CENTRAL_BASE_URL": "https://internal.api.central.arubanetworks.com",
+        "CENTRAL_BASE_URL": "https://<your-cluster>.central.arubanetworks.com",
         "CENTRAL_CLIENT_ID": "your-client-id",
         "CENTRAL_CLIENT_SECRET": "your-client-secret",
         "CENTRALMIND_API_MODE": "readonly"
@@ -262,7 +264,7 @@ CentralMind is built with defense-in-depth:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `CENTRAL_BASE_URL` | Aruba Central API base URL | `https://internal.api.central.arubanetworks.com` |
+| `CENTRAL_BASE_URL` | Aruba Central API base URL ([find yours](https://developer.arubanetworks.com/new-central/docs/getting-started-with-rest-apis)) | (required — cluster-specific) |
 | `CENTRAL_CLIENT_ID` | OAuth2 client ID | (required) |
 | `CENTRAL_CLIENT_SECRET` | OAuth2 client secret | (required) |
 | `CENTRALMIND_API_MODE` | `readonly` / `readwrite` / `all` | `readonly` |

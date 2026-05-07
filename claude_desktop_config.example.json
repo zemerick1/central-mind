@@ -4,7 +4,7 @@
       "command": "python",
       "args": ["-m", "centralmind"],
       "env": {
-        "CENTRAL_BASE_URL": "https://internal.api.central.arubanetworks.com",
+        "CENTRAL_BASE_URL": "https://<your-cluster>.central.arubanetworks.com",
         "CENTRAL_CLIENT_ID": "your-client-id-here",
         "CENTRAL_CLIENT_SECRET": "your-client-secret-here",
         "CENTRALMIND_API_MODE": "readonly",
