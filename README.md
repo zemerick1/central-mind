@@ -4,6 +4,32 @@
 
 CentralMind is a fork of [**MistMind**](https://github.com/nagarjun226/mistmind) by [@nagarjun226](https://github.com/nagarjun226), adapted for the Aruba Central API. The architecture, sandbox design, and progressive disclosure pattern all come from MistMind — CentralMind just points them at a different API.
 
+---
+
+> # ⚠️🚨 READ THIS BEFORE USING `readwrite` MODE 🚨⚠️
+>
+> **LLMs make mistakes. Period. They will hallucinate endpoints, invent parameters, and confidently execute destructive API calls that look perfectly reasonable.**
+>
+> When you set `CENTRALMIND_API_MODE=readwrite`, you are giving an AI **unsupervised write access** to your production Aruba Central environment. That means it can:
+>
+> - **Delete SSIDs, VLANs, firewall rules, and certificates**
+> - **Push broken configurations to live access points and gateways**
+> - **Modify authentication profiles, RADIUS servers, and security policies**
+> - **Overwrite port profiles and take down entire switch stacks**
+> - **Create, modify, or destroy any resource exposed by the 718+ API endpoints**
+>
+> The LLM does not understand your network. It does not know which changes are safe. It does not have a rollback button. **It will act with complete confidence while being completely wrong.**
+>
+> ### 🛑 USE `readwrite` MODE AT YOUR OWN RISK.
+>
+> **There is no undo. There is no confirmation prompt. There is no safety net.**
+>
+> If you choose to enable write access, you accept full responsibility for any configuration changes, outages, or damage caused by LLM-generated API calls. **The maintainers of this project are not responsible for your network going down at 3 AM because an AI decided to "optimize" your firewall rules.**
+>
+> **Default is `readonly` for a reason. Leave it that way unless you genuinely know what you're doing.**
+
+---
+
 ## Why CentralMind?
 
 Because [MistMind](https://github.com/nagarjun226/mistmind) works. It solved a real problem: making massive APIs usable by LLMs without blowing up context windows or requiring pre-training. The core insight — give the LLM a tiny index, a sandbox to search the full spec, and a secure way to execute calls — is elegant and generalizable.
