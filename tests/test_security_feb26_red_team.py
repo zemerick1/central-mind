@@ -38,10 +38,10 @@ def sandbox(deno_path):
 
 
 @pytest.fixture
-def mock_mist_api():
-    """Mock the Mist API for testing."""
-    with patch('centralmind.sandbox.DenoSandbox.central_base_urlS', ['httpbin.org']):
-        yield
+def mock_mist_api(sandbox):
+    """Override sandbox api_host for testing."""
+    sandbox.api_host = "httpbin.org"
+    yield
 
 
 class TestFeb26CheenuRedTeam:
@@ -112,7 +112,6 @@ class TestFeb26CheenuRedTeam:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-12345",
-            api_host="httpbin.org",
         )
         
         # Should not leak token through timing
@@ -175,7 +174,6 @@ class TestFeb26CheenuRedTeam:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-67890",
-            api_host="httpbin.org",
         )
         
         # Should not leak token via BigInt coercion
@@ -253,7 +251,6 @@ class TestFeb26CheenuRedTeam:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-tdz-13579",
-            api_host="httpbin.org",
         )
         
         # Should not leak token via TDZ exploitation
@@ -309,7 +306,7 @@ class TestResourceAmplificationAttacks:
         
         result = await sandbox.run_search(
             code=code,
-            spec_path="spec/mist.resolved.json",
+            spec_path="spec/openAPI.resolved.json",
         )
         
         # Should either timeout or hit memory limit
@@ -375,7 +372,6 @@ class TestIIFEBypassAttempts:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-async-24680",
-            api_host="httpbin.org",
         )
         
         # Should not leak token via async context tracking

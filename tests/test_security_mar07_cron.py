@@ -81,7 +81,6 @@ class TestMar07CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_secret_token_12345",
-            api_host="api.mist.com",
         )
         
         # Verify token not leaked, timing data is safe
@@ -130,7 +129,6 @@ class TestMar07CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_secret_token_67890",
-            api_host="api.mist.com",
         )
         
         # Verify token not leaked via error messages
@@ -199,7 +197,6 @@ class TestMar07CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_secret_token_async_attack",
-            api_host="api.mist.com",
         )
         
         # Verify token not captured
@@ -251,7 +248,6 @@ class TestModuleWorkerIsolation:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_worker_isolation_token",
-            api_host="api.mist.com",
         )
         
         # Verify no token leakage and workers are blocked
@@ -289,7 +285,6 @@ class TestJSONParsingEdgeCases:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_console_leak_token_999",
-            api_host="api.mist.com",
         )
         
         # Verify token scrubbed from all output paths

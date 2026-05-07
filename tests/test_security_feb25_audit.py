@@ -77,7 +77,7 @@ class TestFeb25AuditAttacks:
             };
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed from rejection handler output
@@ -129,7 +129,7 @@ class TestFeb25AuditAttacks:
             };
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed from captured function sources
@@ -173,7 +173,7 @@ class TestFeb25AuditAttacks:
             };
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed from captured headers
@@ -207,7 +207,7 @@ class TestResourceExhaustion:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         
         # Should either handle gracefully or timeout
         assert "error" in result or "caught" in result
@@ -234,7 +234,7 @@ class TestResourceExhaustion:
             return {completed: true};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         
         # Should fail with error (either timeout or "promise never resolved")
         assert "error" in result

@@ -1,4 +1,4 @@
-"""Tests for the MCP server implementation (BUG 6: coverage for server.py)."""
+"""Tests for the MCP server implementation."""
 
 import json
 import tempfile
@@ -21,6 +21,7 @@ def mock_spec_file():
     spec = {
         "openapi": "3.1.0",
         "info": {"title": "Test API", "version": "1.0.0"},
+        "servers": [{"url": "{baseUrl}"}],
         "paths": {
             "/api/v1/self": {
                 "get": {
@@ -69,19 +70,29 @@ def deno_path():
 
 
 @pytest.fixture
+def mock_auth():
+    """Create a mock CentralAuth instance."""
+    auth = MagicMock()
+    auth.host = "internal.api.central.arubanetworks.com"
+    auth.get_token.return_value = "test-bearer-token-12345"
+    return auth
+
+
+@pytest.fixture
 def server_config(deno_path):
     """Create a test server config."""
     return ServerConfig(
-        central_client_id="test-token-secret-12345",
-        central_base_url="api.mist.com",
+        central_client_id="test-client-id",
+        central_client_secret="test-client-secret",
+        central_base_url="https://internal.api.central.arubanetworks.com",
         deno_path=deno_path,
     )
 
 
 @pytest.fixture
-def server(server_config, mock_spec_file):
+def server(server_config, mock_auth, mock_spec_file):
     """Create a CentralMindServer instance for testing."""
-    return CentralMindServer(server_config, mock_spec_file)
+    return CentralMindServer(server_config, mock_auth, mock_spec_file)
 
 
 # =============================================================================
@@ -94,12 +105,8 @@ class TestToolListing:
     @pytest.mark.asyncio
     async def test_list_tools_returns_two_tools(self, server):
         """Tool listing should return exactly 2 tools: search and execute."""
-        # The registered handlers use decorators, so we test via the server attributes
-        # The server should have handlers registered for 2 tools
-        # We verify by checking the server was initialized with our handlers
         assert server.server is not None
         assert server.sandbox is not None
-        # The best test is that _handle_search and _handle_execute exist
         assert hasattr(server, '_handle_search')
         assert hasattr(server, '_handle_execute')
     
@@ -196,21 +203,21 @@ class TestExecuteHandler:
         assert "'code' parameter required" in result[0].text
     
     @pytest.mark.asyncio
-    async def test_execute_can_access_mist_object(self, server):
-        """Execute code can access the mist object."""
+    async def test_execute_can_access_central_object(self, server):
+        """Execute code can access the central object."""
         result = await server._handle_execute({
             "code": """async () => {
                 return {
-                    hasMist: typeof mist !== 'undefined',
-                    hasRequest: typeof mist.request === 'function',
-                    allowedMethods: mist.allowedMethods
+                    hasCentral: typeof central !== 'undefined',
+                    hasRequest: typeof central.request === 'function',
+                    allowedMethods: central.allowedMethods
                 };
             }"""
         })
         
         assert len(result) == 1
         result_data = json.loads(result[0].text)
-        assert result_data["hasMist"] == True
+        assert result_data["hasCentral"] == True
         assert result_data["hasRequest"] == True
         assert "GET" in result_data["allowedMethods"]
 
@@ -225,13 +232,10 @@ class TestUnknownTool:
     @pytest.mark.asyncio
     async def test_server_only_handles_search_and_execute(self, server):
         """Server only handles 'search' and 'execute' tools."""
-        # We verify that _handle_search and _handle_execute are the only handlers
-        # by checking that only these methods are handler methods
         handler_methods = [name for name in dir(server) if name.startswith('_handle_')]
         
         assert '_handle_search' in handler_methods
         assert '_handle_execute' in handler_methods
-        # There should only be these two handlers
         assert len(handler_methods) == 2
 
 
@@ -243,16 +247,12 @@ class TestExceptionScrubbing:
     """Tests for token scrubbing in exception messages."""
     
     @pytest.mark.asyncio
-    async def test_exception_scrubs_token(self, server_config, mock_spec_file):
+    async def test_exception_scrubs_token(self, server_config, mock_auth, mock_spec_file):
         """Exception messages should have token scrubbed."""
-        # Create server with a known token
         secret_token = "super-secret-token-xyz789"
-        config = ServerConfig(
-            central_client_id=secret_token,
-            central_base_url="api.mist.com",
-            deno_path=server_config.deno_path,
-        )
-        server = CentralMindServer(config, mock_spec_file)
+        mock_auth.get_token.return_value = secret_token
+        
+        server = CentralMindServer(server_config, mock_auth, mock_spec_file)
         
         # Execute code that throws an error containing the token
         result = await server._handle_execute({
@@ -276,30 +276,31 @@ class TestExceptionScrubbing:
 class TestServerInitialization:
     """Tests for server initialization."""
     
-    def test_server_initializes_with_valid_config(self, server_config, mock_spec_file):
+    def test_server_initializes_with_valid_config(self, server_config, mock_auth, mock_spec_file):
         """Server initializes correctly with valid config."""
-        server = CentralMindServer(server_config, mock_spec_file)
+        server = CentralMindServer(server_config, mock_auth, mock_spec_file)
         
         assert server.config == server_config
         assert server.spec_path.exists()
         assert server.sandbox is not None
     
-    def test_server_fails_with_missing_spec(self, server_config):
+    def test_server_fails_with_missing_spec(self, server_config, mock_auth):
         """Server raises error when spec file doesn't exist."""
         with pytest.raises(FileNotFoundError) as exc_info:
-            CentralMindServer(server_config, "/nonexistent/path/spec.json")
+            CentralMindServer(server_config, mock_auth, "/nonexistent/path/spec.json")
         
         assert "Resolved spec not found" in str(exc_info.value)
     
-    def test_server_inherits_api_mode(self, server_config, mock_spec_file):
+    def test_server_inherits_api_mode(self, server_config, mock_auth, mock_spec_file):
         """Server sandbox inherits API mode from config."""
         config = ServerConfig(
-            central_client_id="test-token",
-            central_base_url="api.mist.com",
+            central_client_id="test-client-id",
+            central_client_secret="test-client-secret",
+            central_base_url="https://internal.api.central.arubanetworks.com",
             deno_path=server_config.deno_path,
             centralmind_api_mode="readwrite",
         )
-        server = CentralMindServer(config, mock_spec_file)
+        server = CentralMindServer(config, mock_auth, mock_spec_file)
         
         assert server.sandbox.api_mode == "readwrite"
         assert "POST" in server.sandbox.allowed_methods
@@ -315,7 +316,7 @@ class TestConfigSpecPath:
     def test_config_accepts_spec_path(self, deno_path):
         """Config accepts centralmind_spec_path setting."""
         config = ServerConfig(
-            central_client_id="test-token",
+            central_client_id="test-client-id",
             deno_path=deno_path,
             centralmind_spec_path="/custom/path/spec.json",
         )
@@ -325,7 +326,7 @@ class TestConfigSpecPath:
     def test_config_spec_path_defaults_to_none(self, deno_path):
         """Config spec_path defaults to None."""
         config = ServerConfig(
-            central_client_id="test-token",
+            central_client_id="test-client-id",
             deno_path=deno_path,
         )
         

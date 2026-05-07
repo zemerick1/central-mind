@@ -49,7 +49,7 @@ class TestMar12CronCheenuAttacks:
                 return {defense: "structuredClone failed", error: e.message};
             }
         }'''
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         assert SECRET_TOKEN not in str(result)
 
     @pytest.mark.asyncio
@@ -75,7 +75,7 @@ class TestMar12CronCheenuAttacks:
             }
             return {leaked: "Captured during disposal", captured};
         }'''
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         assert SECRET_TOKEN not in str(result)
 
     @pytest.mark.asyncio
@@ -96,5 +96,5 @@ class TestMar12CronCheenuAttacks:
             } catch (e) {}
             return {leaked: "JSON.parse intercept", captured};
         }'''
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         assert SECRET_TOKEN not in str(result)

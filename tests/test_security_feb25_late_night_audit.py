@@ -4,11 +4,26 @@ import pytest
 
 from centralmind.sandbox import DenoSandbox
 
+def _find_deno():
+    """Find Deno binary."""
+    import shutil
+    from pathlib import Path
+    home = Path.home()
+    deno_in_home = home / ".deno" / "bin" / "deno"
+    if deno_in_home.exists():
+        return str(deno_in_home)
+    deno_in_path = shutil.which("deno")
+    if deno_in_path:
+        return deno_in_path
+    import pytest
+    pytest.skip("Deno not found")
+
+
 
 @pytest.fixture
 def sandbox(tmp_path):
     """Sandbox fixture for execute tests."""
-    deno_path = "/Users/cheenu/.deno/bin/deno"
+    deno_path = _find_deno()
     return DenoSandbox(deno_path=deno_path, api_mode="readwrite")
 
 
@@ -61,7 +76,6 @@ class TestServiceWorkerInterception:
         result = await sandbox.run_execute(
             code=code,
             api_token="sw-token-12345",
-            api_host="api.mist.com",
         )
         
         # Token should never appear in output
@@ -108,7 +122,6 @@ class TestAsyncContextLeakage:
         result = await sandbox.run_execute(
             code=code,
             api_token="microtask-token-67890",
-            api_host="api.mist.com",
         )
         
         # Token should never leak
@@ -179,7 +192,6 @@ class TestSymbolToPrimitiveBypass:
         result = await sandbox.run_execute(
             code=code,
             api_token="symbol-token-11111",
-            api_host="api.mist.com",
         )
         
         # Token should never leak through any Symbol method
@@ -261,7 +273,6 @@ class TestProxyGetterSideEffects:
         result = await sandbox.run_execute(
             code=code,
             api_token="proxy-token-22222",
-            api_host="api.mist.com",
         )
         
         # Token should never leak even through Proxy traps
@@ -299,7 +310,6 @@ class TestWeakMapMemoryPersistence:
         result1 = await sandbox.run_execute(
             code=code1,
             api_token="persist-token-33333",
-            api_host="api.mist.com",
         )
         
         # Second execution: Try to retrieve it
@@ -321,7 +331,6 @@ class TestWeakMapMemoryPersistence:
         result2 = await sandbox.run_execute(
             code=code2,
             api_token="persist-token-33333",
-            api_host="api.mist.com",
         )
         
         # Token should never leak
@@ -368,7 +377,6 @@ class TestRegExpLastIndexSideChannel:
         result = await sandbox.run_execute(
             code=code,
             api_token="regexp-token-44444",
-            api_host="api.mist.com",
         )
         
         # Token should never leak
@@ -436,7 +444,6 @@ class TestJSONReviverBypass:
         result = await sandbox.run_execute(
             code=code,
             api_token="json-token-55555",
-            api_host="api.mist.com",
         )
         
         # Token should never leak through JSON manipulation

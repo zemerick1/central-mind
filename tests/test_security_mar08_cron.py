@@ -103,7 +103,6 @@ class TestMar08CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_console_table_token_12345",
-            api_host="api.mist.com",
         )
         
         # Verify token not leaked via console.table or console.dir
@@ -189,7 +188,6 @@ class TestMar08CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_textdecoder_stream_token_xyz",
-            api_host="api.mist.com",
         )
         
         # Verify token not leaked via TextDecoder stream buffers
@@ -289,7 +287,6 @@ class TestMar08CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_intl_segmenter_token_secret_999",
-            api_host="api.mist.com",
         )
         
         # Verify token not leaked via Intl API timing or analysis
@@ -368,7 +365,6 @@ class TestAbortSignalTimeoutRace:
         result = await sandbox.run_execute(
             code=attack_code,
             api_token="test_abortsignal_race_token_777",
-            api_host="api.mist.com",
         )
         
         # Verify token not leaked via AbortSignal race conditions

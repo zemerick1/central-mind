@@ -41,27 +41,27 @@ class TestMainSync:
 
     def test_version_flag(self, capsys):
         """--version should print version and exit."""
-        with patch.object(sys, "argv", ["mistmind", "--version"]):
+        with patch.object(sys, "argv", ["centralmind", "--version"]):
             with pytest.raises(SystemExit) as exc_info:
                 main_sync()
             
             assert exc_info.value.code == 0
             captured = capsys.readouterr()
-            assert "mistmind" in captured.out
+            assert "centralmind" in captured.out
 
     def test_help_flag(self, capsys):
         """--help should print help and exit."""
-        with patch.object(sys, "argv", ["mistmind", "--help"]):
+        with patch.object(sys, "argv", ["centralmind", "--help"]):
             with pytest.raises(SystemExit) as exc_info:
                 main_sync()
             
             assert exc_info.value.code == 0
             captured = capsys.readouterr()
-            assert "MistMind" in captured.out or "usage" in captured.out
+            assert "CentralMind" in captured.out or "usage" in captured.out
 
     def test_invalid_transport_exits_with_error(self, capsys):
         """Should exit with error for non-stdio transport."""
-        with patch.object(sys, "argv", ["mistmind", "--transport", "sse"]):
+        with patch.object(sys, "argv", ["centralmind", "--transport", "sse"]):
             with pytest.raises(SystemExit) as exc_info:
                 main_sync()
             
@@ -71,8 +71,8 @@ class TestMainSync:
 
     def test_accepts_debug_flag(self):
         """Should accept --debug flag."""
-        with patch.object(sys, "argv", ["mistmind", "--debug"]):
-            with patch("mistmind.__main__.asyncio.run") as mock_run:
+        with patch.object(sys, "argv", ["centralmind", "--debug"]):
+            with patch("centralmind.__main__.asyncio.run") as mock_run:
                 # Mock to raise SystemExit to prevent actual execution
                 mock_run.side_effect = SystemExit(1)
                 
@@ -84,7 +84,7 @@ class TestMainSync:
 
     def test_accepts_env_file_flag(self):
         """Should accept --env-file flag."""
-        with patch.object(sys, "argv", ["mistmind", "--env-file", "/fake/path/.env"]):
+        with patch.object(sys, "argv", ["centralmind", "--env-file", "/fake/path/.env"]):
             with pytest.raises(SystemExit) as exc_info:
                 main_sync()
             
@@ -93,8 +93,8 @@ class TestMainSync:
 
     def test_transport_default_is_stdio(self):
         """Default transport should be stdio."""
-        with patch.object(sys, "argv", ["mistmind"]):
-            with patch("mistmind.__main__.asyncio.run") as mock_run:
+        with patch.object(sys, "argv", ["centralmind"]):
+            with patch("centralmind.__main__.asyncio.run") as mock_run:
                 # Mock the entire server run to avoid spec file requirement
                 mock_run.side_effect = Exception("Mocked to prevent actual run")
                 
@@ -113,7 +113,7 @@ class TestArgParsing:
     def test_parses_all_expected_args(self):
         """Should parse all expected CLI arguments."""
         test_args = [
-            "mistmind",
+            "centralmind",
             "--transport", "stdio",
             "--host", "localhost",
             "--port", "9000",
@@ -122,7 +122,7 @@ class TestArgParsing:
         ]
         
         with patch.object(sys, "argv", test_args):
-            with patch("mistmind.__main__.asyncio.run"):
+            with patch("centralmind.__main__.asyncio.run"):
                 # We expect this to fail due to env file not existing
                 # but arg parsing should succeed
                 try:
@@ -134,8 +134,8 @@ class TestArgParsing:
 
     def test_host_default(self):
         """Host should default to 127.0.0.1."""
-        with patch.object(sys, "argv", ["mistmind"]):
-            with patch("mistmind.__main__.asyncio.run") as mock_run:
+        with patch.object(sys, "argv", ["centralmind"]):
+            with patch("centralmind.__main__.asyncio.run") as mock_run:
                 mock_run.side_effect = Exception("Mock")
                 
                 try:
@@ -148,8 +148,8 @@ class TestArgParsing:
 
     def test_port_default(self):
         """Port should default to 8000."""
-        with patch.object(sys, "argv", ["mistmind"]):
-            with patch("mistmind.__main__.asyncio.run") as mock_run:
+        with patch.object(sys, "argv", ["centralmind"]):
+            with patch("centralmind.__main__.asyncio.run") as mock_run:
                 mock_run.side_effect = Exception("Mock")
                 
                 try:
@@ -168,14 +168,14 @@ class TestMainAsyncFunction:
     async def test_loads_env_file_when_specified(self, tmp_path):
         """Should load specified env file."""
         env_file = tmp_path / ".env.test"
-        env_file.write_text("MIST_API_TOKEN=test_token\n")
+        env_file.write_text("CENTRAL_CLIENT_ID=test_id\n")
         
         args = MagicMock()
         args.env_file = str(env_file)
         args.debug = False
         
-        with patch("mistmind.__main__.load_dotenv") as mock_load_dotenv:
-            with patch("mistmind.__main__.ServerConfig"):
+        with patch("centralmind.__main__.load_dotenv") as mock_load_dotenv:
+            with patch("centralmind.__main__.ServerConfig"):
                 with pytest.raises(SystemExit):
                     # Will fail due to spec not existing
                     from centralmind.__main__ import main
@@ -191,8 +191,8 @@ class TestMainAsyncFunction:
         args.env_file = None
         args.debug = False
         
-        with patch("mistmind.__main__.load_dotenv"):
-            with patch("mistmind.__main__.ServerConfig") as mock_config:
+        with patch("centralmind.__main__.load_dotenv"):
+            with patch("centralmind.__main__.ServerConfig") as mock_config:
                 # Mock config to return a spec path that doesn't exist
                 mock_config.return_value.centralmind_debug = False
                 mock_config.return_value.centralmind_spec_path = "/nonexistent/spec.json"
@@ -206,7 +206,7 @@ class TestMainAsyncFunction:
 
     @pytest.mark.asyncio
     async def test_uses_config_spec_path_if_set(self, tmp_path):
-        """Should use config spec path if centralmind_SPEC_PATH is set."""
+        """Should use config spec path if CENTRALMIND_SPEC_PATH is set."""
         # Create a fake spec file
         spec_file = tmp_path / "custom.json"
         spec_file.write_text('{"openapi": "3.1.0", "info": {}, "paths": {}}')
@@ -217,37 +217,46 @@ class TestMainAsyncFunction:
         
         from centralmind.__main__ import main
         
-        with patch("mistmind.__main__.load_dotenv"):
-            with patch("mistmind.__main__.ServerConfig") as mock_config:
+        with patch("centralmind.__main__.load_dotenv"):
+            with patch("centralmind.__main__.ServerConfig") as mock_config:
                 mock_config.return_value.centralmind_debug = False
                 mock_config.return_value.centralmind_spec_path = str(spec_file)
+                mock_config.return_value.central_client_id = "test-id"
+                mock_config.return_value.central_client_secret = "test-secret"
+                mock_config.return_value.central_base_url = "https://test.example.com"
                 
-                with patch("mistmind.__main__.CentralMindServer") as mock_server:
-                    # Mock the server run method to be a coroutine
-                    async def mock_run():
-                        raise Exception("Test stop")
+                with patch("centralmind.__main__.CentralAuth") as mock_auth:
+                    mock_auth.return_value.host = "test.example.com"
+                    mock_auth.return_value.get_token.return_value = "test-token"
                     
-                    mock_server.return_value.run = mock_run
-                    
-                    # Expect SystemExit due to error handling
-                    with pytest.raises(SystemExit):
-                        await main(args)
-                    
-                    # Verify server was created with the custom spec path
-                    mock_server.assert_called_once()
-                    call_args = mock_server.call_args[0]
-                    assert call_args[1] == str(spec_file)
+                    with patch("centralmind.__main__.CentralMindServer") as mock_server:
+                        # Mock the server run method to be a coroutine
+                        async def mock_run():
+                            raise Exception("Test stop")
+                        
+                        mock_server.return_value.run = mock_run
+                        
+                        # Expect SystemExit due to error handling
+                        with pytest.raises(SystemExit):
+                            await main(args)
+                        
+                        # Verify server was created with the custom spec path
+                        mock_server.assert_called_once()
+                        call_args = mock_server.call_args[0]
+                        # call_args is (config, auth, spec_path)
+                        assert call_args[2] == str(spec_file)
 
 
 class TestErrorHandling:
     """Tests for error handling in main."""
 
     def test_handles_keyboard_interrupt(self):
-        """Should handle KeyboardInterrupt gracefully."""
-        with patch.object(sys, "argv", ["mistmind"]):
-            with patch("mistmind.__main__.asyncio.run") as mock_run:
+        """KeyboardInterrupt from asyncio.run should propagate cleanly."""
+        with patch.object(sys, "argv", ["centralmind"]):
+            with patch("centralmind.__main__.asyncio.run") as mock_run:
                 mock_run.side_effect = KeyboardInterrupt()
                 
-                # Should catch KeyboardInterrupt and exit gracefully
-                # (no exception propagates out)
-                main_sync()  # Should complete without raising
+                # KeyboardInterrupt propagates out of main_sync
+                with pytest.raises(KeyboardInterrupt):
+                    main_sync()
+

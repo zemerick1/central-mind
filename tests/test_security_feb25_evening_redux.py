@@ -80,7 +80,7 @@ class TestContentTypeBypassAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed
@@ -124,7 +124,7 @@ class TestContentTypeBypassAttacks:
             }
         }'''
         
-        result = await readwrite_sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await readwrite_sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed from all responses
@@ -138,6 +138,10 @@ class TestUnicodeNormalizationAttacks:
     """Attack: Use Unicode tricks to evade token scrubbing."""
     
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        __import__('platform').system() == 'Windows',
+        reason="Windows charmap codec can't encode Cyrillic characters in Deno subprocess output"
+    )
     async def test_attack_lookalike_characters(self, sandbox):
         """Attack: Use Unicode lookalike characters to create token variants.
         
@@ -173,7 +177,7 @@ class TestUnicodeNormalizationAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed (exact match)
@@ -216,7 +220,7 @@ class TestUnicodeNormalizationAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed
@@ -257,7 +261,7 @@ class TestUnicodeNormalizationAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed regardless of visual direction
@@ -313,7 +317,7 @@ class TestProxyErrorStackInjection:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed
@@ -354,7 +358,7 @@ class TestProxyErrorStackInjection:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed from output
@@ -402,7 +406,7 @@ class TestRegexDenialOfService:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed (and scrubbing shouldn't hang)

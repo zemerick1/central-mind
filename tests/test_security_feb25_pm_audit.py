@@ -79,7 +79,7 @@ class TestFeb25PMCheenuAttacks:
             };
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should never leak through timing analysis
@@ -120,7 +120,7 @@ class TestFeb25PMCheenuAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed from error messages
@@ -165,7 +165,7 @@ class TestFeb25PMCheenuAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should never leak even if scrubbing fails
@@ -209,7 +209,7 @@ class TestRacyAsyncAttacks:
             };
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed from all parallel results
@@ -263,7 +263,7 @@ class TestRacyAsyncAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should be scrubbed even if weird objects are involved
@@ -310,7 +310,7 @@ class TestDenoBinaryExploit:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         
         # Token should never leak

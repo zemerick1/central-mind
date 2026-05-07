@@ -81,7 +81,7 @@ class TestFeb25EveningCheenuAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
         # _token should not be accessible
@@ -125,7 +125,7 @@ class TestFeb25EveningCheenuAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
         # Verify token not in leaked array
@@ -168,7 +168,7 @@ class TestFeb25EveningCheenuAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
         # Token should not be accessible
@@ -206,7 +206,7 @@ class TestNetworkBypassAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         # Should error (invalid endpoint) or return Mist domain only
         if 'url' in result:
             # If it succeeded (unlikely), verify it stayed on Mist domains
@@ -240,7 +240,7 @@ class TestNetworkBypassAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Should error or fail, token should not leak
         assert SECRET_TOKEN not in result_str
@@ -276,7 +276,7 @@ class TestNetworkBypassAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Token should not leak
         assert SECRET_TOKEN not in result_str
@@ -310,7 +310,7 @@ class TestApiModeBypassAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         # Should be blocked - we're in readonly mode
         assert result.get('blocked') == True or 'error' in result
         assert 'not allowed' in result.get('error', '').lower()
@@ -345,7 +345,7 @@ class TestApiModeBypassAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Token should not leak regardless
         assert SECRET_TOKEN not in result_str
@@ -381,7 +381,7 @@ class TestResourceExhaustionAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Token should not leak even under memory pressure
         assert SECRET_TOKEN not in result_str
@@ -425,7 +425,7 @@ class TestResourceExhaustionAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Token should not leak in error messages or stack traces
         assert SECRET_TOKEN not in result_str

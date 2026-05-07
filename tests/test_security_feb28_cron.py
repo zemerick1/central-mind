@@ -96,7 +96,6 @@ class TestFeb28CronCheenuAttacks:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # VULNERABILITY CONFIRMED: Iterator protocol hijacking CAN capture token
@@ -167,7 +166,6 @@ class TestFeb28CronCheenuAttacks:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Token should not leak through async context
@@ -240,7 +238,6 @@ class TestFeb28CronCheenuAttacks:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Custom error getters should not capture token
@@ -311,7 +308,6 @@ class TestWeakRefFinalizationAttack:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # No token should leak through finalization callbacks
@@ -383,7 +379,6 @@ class TestFetchRequestObjectManipulation:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Even if we capture the request, token should be scrubbed from output
@@ -437,7 +432,6 @@ class TestFetchRequestObjectManipulation:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Response cloning shouldn't leak request Authorization header
@@ -481,7 +475,6 @@ class TestMethodCoercionAttacks:
                 }
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Should be blocked by api_mode=readonly (DELETE not in allowlist)

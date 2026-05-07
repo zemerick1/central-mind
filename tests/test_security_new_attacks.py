@@ -60,7 +60,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -81,7 +81,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -121,7 +121,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -143,7 +143,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -163,7 +163,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -189,7 +189,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -217,7 +217,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -251,7 +251,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -276,7 +276,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -310,7 +310,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Token value shouldn't leak even if timing info does
         assert SECRET_TOKEN not in result_str
@@ -332,7 +332,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -358,7 +358,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -379,7 +379,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -402,7 +402,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Raw token string should be scrubbed
         assert SECRET_TOKEN not in result_str
@@ -425,7 +425,7 @@ class TestNewRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Hash leaking is a known limitation - but raw token should still be scrubbed
         assert SECRET_TOKEN not in result_str
@@ -445,7 +445,6 @@ class TestStdinReadFailure:
         result = await sandbox.run_execute(
             '''async () => { return {ok: true}; }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Should complete successfully
@@ -464,7 +463,6 @@ class TestTokenInErrorMessages:
                 throw new Error("API call failed with token {SECRET_TOKEN}");
             }}''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         assert "error" in result

@@ -4,11 +4,26 @@ import pytest
 
 from centralmind.sandbox import DenoSandbox
 
+def _find_deno():
+    """Find Deno binary."""
+    import shutil
+    from pathlib import Path
+    home = Path.home()
+    deno_in_home = home / ".deno" / "bin" / "deno"
+    if deno_in_home.exists():
+        return str(deno_in_home)
+    deno_in_path = shutil.which("deno")
+    if deno_in_path:
+        return deno_in_path
+    import pytest
+    pytest.skip("Deno not found")
+
+
 
 @pytest.fixture
 def sandbox(tmp_path):
     """Sandbox fixture for execute tests."""
-    deno_path = "/Users/cheenu/.deno/bin/deno"
+    deno_path = _find_deno()
     return DenoSandbox(deno_path=deno_path, api_mode="readwrite")
 
 
@@ -47,7 +62,6 @@ class TestBlobURLExfiltration:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-12345",
-            api_host="api.mist.com",
         )
         
         # Should either block blob URL fetch or not have access to token to put in blob
@@ -94,7 +108,6 @@ class TestDataURLDynamicImport:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-67890",
-            api_host="api.mist.com",
         )
         
         # Token should never leak even if dynamic imports work
@@ -148,7 +161,6 @@ class TestResponseRedirectTokenLeak:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-abc123",
-            api_host="api.mist.com",
         )
         
         # Token should be scrubbed from output
@@ -204,7 +216,6 @@ class TestImportMetaResolve:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-xyz789",
-            api_host="api.mist.com",
         )
         
         # Token should not leak
@@ -257,7 +268,6 @@ class TestAsyncGeneratorMemoryLeak:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-mem999",
-            api_host="api.mist.com",
         )
         
         # Token should not leak even if memory is consumed
@@ -319,14 +329,13 @@ class TestHTTP2PseudoHeader:
         
         # Use readonly mode to test method restrictions
         readonly_sandbox = DenoSandbox(
-            deno_path="/Users/cheenu/.deno/bin/deno",
+            deno_path=_find_deno(),
             api_mode="readonly"  # Only GET allowed
         )
         
         result = await readonly_sandbox.run_execute(
             code=code,
             api_token="test-token-http2",
-            api_host="api.mist.com",
         )
         
         # Token should not leak
@@ -383,7 +392,6 @@ class TestTextEncoderSideChannel:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-timing",
-            api_host="api.mist.com",
         )
         
         # Token should not leak

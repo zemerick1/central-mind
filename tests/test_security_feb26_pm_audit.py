@@ -82,7 +82,6 @@ class TestFeb26PMCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Token should NOT appear in any form
@@ -136,7 +135,6 @@ class TestFeb26PMCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Permission queries should either be denied or not reveal sensitive info
@@ -178,7 +176,6 @@ class TestFeb26PMCheenuAttacks:
         result1 = await sandbox.run_execute(
             code=code1,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Second execution: try to retrieve stored data
@@ -200,7 +197,6 @@ class TestFeb26PMCheenuAttacks:
         result2 = await sandbox.run_execute(
             code=code2,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Symbol.for() registry should NOT persist across executions
@@ -239,7 +235,6 @@ class TestDenoSubprocessIsolation:
         result1 = await sandbox.run_execute(
             code=code1,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Second execution: check if pollution persists
@@ -254,7 +249,6 @@ class TestDenoSubprocessIsolation:
         result2 = await sandbox.run_execute(
             code=code2,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Pollution should NOT persist (fresh Deno process each time)
@@ -306,7 +300,6 @@ class TestResponseObjectLeakage:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Token should be scrubbed even if headers are captured

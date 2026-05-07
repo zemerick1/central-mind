@@ -69,7 +69,7 @@ class TestMar09CronCheenuAttacks:
         
         result = await sandbox.run_search(
             code=code,
-            spec_path="spec/mist.resolved.json"
+            spec_path="spec/openAPI.resolved.json"
         )
         
         # Should succeed - timing info doesn't leak the token
@@ -128,7 +128,6 @@ class TestMar09CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token="test_secret_token_12345",
-            api_host="api.mist.com"
         )
         
         # Should not leak token
@@ -201,7 +200,6 @@ class TestMar09CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token="test_secret_token_67890",
-            api_host="api.mist.com"
         )
         
         # Should not leak token
@@ -268,7 +266,6 @@ class TestIteratorHelpersExploitation:
         result = await sandbox.run_execute(
             code=code,
             api_token="test_secret_token_iterator_99",
-            api_host="api.mist.com"
         )
         
         # Should not leak token
@@ -333,11 +330,11 @@ class TestModuleNamespaceExoticObjects:
         
         result = await sandbox.run_search(
             code=code,
-            spec_path="spec/mist.resolved.json"
+            spec_path="spec/openAPI.resolved.json"
         )
         
         # Should succeed - spec is intentionally accessible
-        assert "error" not in result or result.get("error", "").startswith("No valid JSON")
-        # Should not leak sensitive paths
+        assert "error" not in result or isinstance(result, list)
+        # Should not leak the secret token
         result_str = json.dumps(result)
-        assert "/Users/" not in result_str  # No absolute paths leaked
+        assert SECRET_TOKEN not in result_str

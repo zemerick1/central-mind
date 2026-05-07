@@ -137,7 +137,7 @@ class TestTokenScrubbing:
             throw new Error("Failed with token: {SECRET_TOKEN}");
         }}'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         
         assert "error" in result
         assert SECRET_TOKEN not in json.dumps(result)
@@ -152,7 +152,7 @@ class TestTokenScrubbing:
             throw new Error("Stack trace test");
         }}'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         
         assert "error" in result
         # Token should be scrubbed from both error and stack
@@ -167,7 +167,7 @@ class TestTokenScrubbing:
             return {{"status": "done"}};
         }}'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         
         # Even if console.log appears in output parsing, token should be scrubbed
         result_str = json.dumps(result)
@@ -181,7 +181,7 @@ class TestTokenScrubbing:
             return {{"status": "done"}};
         }}'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
 
@@ -193,6 +193,7 @@ class TestTokenScrubbing:
 class TestTempFileSecurity:
     """Test that temp files have correct permissions and don't contain token."""
     
+    @pytest.mark.skip(reason="os.chmod no longer called — tokens pass via stdin, not temp files")
     @pytest.mark.asyncio
     async def test_temp_file_permissions(self, sandbox):
         """Temp files should have 0o600 permissions (owner read/write only)."""
@@ -206,7 +207,7 @@ class TestTempFileSecurity:
         
         with patch('centralmind.sandbox.os.chmod', side_effect=tracking_chmod):
             code = '''async () => { return {"test": true}; }'''
-            await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+            await sandbox.run_execute(code, SECRET_TOKEN)
         
         # Verify chmod was called with 0o600
         assert len(chmod_calls) >= 1
@@ -232,7 +233,7 @@ class TestTempFileSecurity:
         
         with patch('builtins.open', side_effect=tracking_open):
             code = '''async () => { return {"test": true}; }'''
-            await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+            await sandbox.run_execute(code, SECRET_TOKEN)
         
         # Verify token doesn't appear in any written content
         for content in written_contents:
@@ -266,7 +267,7 @@ class TestDenoArgs:
         
         with patch('asyncio.create_subprocess_exec', side_effect=mock_create_subprocess):
             code = '''async () => { return {"test": true}; }'''
-            await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+            await sandbox.run_execute(code, SECRET_TOKEN)
         
         # Check that --no-prompt is in the command
         cmd_str = " ".join(str(x) for x in captured_cmd)
@@ -307,7 +308,7 @@ class TestTimeoutKill:
         
         import signal
         with patch('centralmind.sandbox.os.kill', side_effect=tracking_kill):
-            result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+            result = await sandbox.run_execute(code, SECRET_TOKEN)
         
         # Should have timed out
         assert "error" in result
@@ -336,7 +337,7 @@ class TestRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -348,7 +349,7 @@ class TestRedTeamAttacks:
             return {"leaked": _token};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -360,7 +361,7 @@ class TestRedTeamAttacks:
             return {};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -373,7 +374,7 @@ class TestRedTeamAttacks:
             return {"inspected": inspected};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -393,7 +394,7 @@ class TestRedTeamAttacks:
             return allVars;
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -415,7 +416,7 @@ class TestRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -429,7 +430,7 @@ class TestRedTeamAttacks:
             };
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -447,7 +448,7 @@ class TestRedTeamAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -470,7 +471,7 @@ class TestRedTeamAttacks:
             return {"leaked": leaked};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -493,7 +494,7 @@ class TestRedTeamAttacks:
             return {"captured": captured};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -504,7 +505,7 @@ class TestRedTeamAttacks:
             return {"token": _token};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -525,7 +526,7 @@ class TestRedTeamAttacks:
             return {"encoded": encoded};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Raw token is scrubbed
         assert SECRET_TOKEN not in result_str
@@ -545,7 +546,7 @@ class TestRedTeamAttacks:
             return {"chars": _token.split("")};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         # Raw token string is scrubbed
         assert SECRET_TOKEN not in result_str
@@ -567,7 +568,7 @@ class TestRedTeamAttacks:
             };
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
     
@@ -586,7 +587,7 @@ class TestRedTeamAttacks:
             return {"results": results};
         }'''
         
-        result = await sandbox.run_execute(code, SECRET_TOKEN, "api.mist.com")
+        result = await sandbox.run_execute(code, SECRET_TOKEN)
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
 
@@ -608,7 +609,7 @@ class TestStress:
                 console.log("Token: {token}");
                 return {{"token": "{token}"}};
             }}'''
-            return await sandbox.run_execute(code, token, "api.mist.com")
+            return await sandbox.run_execute(code, token)
         
         results = await asyncio.gather(*[run_with_token(t) for t in tokens])
         
@@ -635,7 +636,6 @@ class TestRateLimiting:
             result = await sandbox.run_execute(
                 f'''async () => {{ return {{request: {i}}}; }}''',
                 "test-token",
-                "api.mist.com"
             )
             assert "error" not in result or "Rate limit" not in result.get("error", "")
         
@@ -643,7 +643,6 @@ class TestRateLimiting:
         result = await sandbox.run_execute(
             '''async () => { return {shouldFail: true}; }''',
             "test-token",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -659,7 +658,6 @@ class TestRateLimiting:
             result = await sandbox.run_execute(
                 f'''async () => {{ return {{request: {i}}}; }}''',
                 "test-token",
-                "api.mist.com"
             )
             assert "Rate limit" not in result.get("error", "")
 
@@ -682,7 +680,6 @@ class TestApiModeEnforcement:
                 }
             }''',
             "test-token",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -704,7 +701,6 @@ class TestApiModeEnforcement:
                 }
             }''',
             "test-token",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -726,7 +722,6 @@ class TestApiModeEnforcement:
                 }
             }''',
             "test-token",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -753,7 +748,6 @@ class TestApiModeEnforcement:
                 }
             }''',
             "test-token",
-            "api.mist.com"
         )
         
         # Should not have method rejection
@@ -774,7 +768,6 @@ class TestApiModeEnforcement:
                 }
             }''',
             "test-token",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -794,7 +787,6 @@ class TestOutputSizeLimit:
                 return "x".repeat(2 * 1024 * 1024);
             }''',
             "test-token",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -843,7 +835,6 @@ class TestConcurrencySemaphore:
                     return {{id: {i}}};
                 }}''',
                 "test-token",
-                "api.mist.com"
             )
             end_times.append(time.monotonic())
             return result
@@ -868,7 +859,6 @@ class TestIIFETokenIsolation:
                 return typeof _token;
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         assert result == "undefined"
@@ -886,7 +876,6 @@ class TestIIFETokenIsolation:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         result_str = json.dumps(result)
@@ -901,7 +890,6 @@ class TestIIFETokenIsolation:
                 return mist.request.toString();
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # The function source might reference _token variable name,
@@ -924,7 +912,6 @@ class TestIIFETokenIsolation:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         assert result["hasToken"] == False
@@ -940,7 +927,6 @@ class TestTokenValidation:
         result = await sandbox.run_execute(
             '''async () => { return {ok: true}; }''',
             "",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -952,7 +938,6 @@ class TestTokenValidation:
         result = await sandbox.run_execute(
             '''async () => { return {ok: true}; }''',
             "   ",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -964,7 +949,6 @@ class TestTokenValidation:
         result = await sandbox.run_execute(
             '''async () => { return {ok: true}; }''',
             "token\r\nX-Injected: evil",
-            "api.mist.com"
         )
         
         assert "error" in result
@@ -976,7 +960,6 @@ class TestTokenValidation:
         result = await sandbox.run_execute(
             '''async () => { return {ok: true}; }''',
             "token\x00evil",
-            "api.mist.com"
         )
         
         assert "error" in result

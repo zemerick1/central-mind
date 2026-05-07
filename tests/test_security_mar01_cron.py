@@ -100,7 +100,6 @@ class TestMar01CronCheenuAttacks:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Verify token was scrubbed
@@ -177,7 +176,6 @@ class TestMar01CronCheenuAttacks:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Verify token was scrubbed
@@ -263,7 +261,6 @@ class TestMar01CronCheenuAttacks:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Verify token was scrubbed
@@ -342,7 +339,6 @@ class TestRequestCloningMemoryExhaustion:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Should complete without crashing (timeout or memory limit)
@@ -427,7 +423,6 @@ class TestCustomElementsSandboxEscape:
                 };
             }''',
             SECRET_TOKEN,
-            "api.mist.com"
         )
         
         # Verify token was scrubbed

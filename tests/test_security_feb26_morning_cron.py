@@ -97,7 +97,6 @@ class TestFeb26MorningCronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Verify token not leaked
@@ -159,7 +158,6 @@ class TestFeb26MorningCronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Verify token not leaked
@@ -230,7 +228,6 @@ class TestFeb26MorningCronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Verify token not leaked in stack traces
@@ -281,7 +278,6 @@ class TestDenoPermissionsProbing:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Verify token not leaked
@@ -339,7 +335,6 @@ class TestErrorCauseChainAttack:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Verify token not leaked

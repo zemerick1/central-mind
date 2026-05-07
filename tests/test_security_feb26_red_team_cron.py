@@ -79,7 +79,6 @@ class TestV8HeapManipulation:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Verify token not leaked
@@ -135,7 +134,6 @@ class TestV8HeapManipulation:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Verify token not leaked
@@ -197,7 +195,6 @@ class TestFetchTimingSideChannel:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Verify token not in output
@@ -253,7 +250,6 @@ class TestFetchTimingSideChannel:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         result_str = str(result)
@@ -303,7 +299,6 @@ class TestPromiseMicrotaskInterception:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         result_str = str(result)
@@ -361,7 +356,6 @@ class TestPromiseMicrotaskInterception:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         result_str = str(result)
@@ -427,7 +421,6 @@ class TestMemoryForensics:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         result_str = str(result)

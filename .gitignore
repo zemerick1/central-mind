@@ -41,3 +41,7 @@ spec/openAPI.resolved.json.preConvert
 # Large source files (Postman collections)
 spec/*.postman_collection.json
 spec/openAPI.json.old
+
+# Temporary fix scripts
+fix_tests.py
+.FullName

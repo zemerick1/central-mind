@@ -82,7 +82,6 @@ class TestFeb27CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Should NOT leak token
@@ -149,7 +148,6 @@ class TestFeb27CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Should NOT leak token
@@ -231,7 +229,6 @@ class TestFeb27CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Should NOT leak token
@@ -292,7 +289,6 @@ class TestAsyncContextManipulation:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Should NOT leak token in any form
@@ -340,7 +336,6 @@ class TestAsyncContextManipulation:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Should NOT leak token
@@ -412,7 +407,6 @@ class TestMemoryForensicsV2:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Should NOT leak token

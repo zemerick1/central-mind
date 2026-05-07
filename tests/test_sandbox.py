@@ -154,7 +154,7 @@ async def test_execute_mock_api(sandbox):
     # This will fail with network error, but tests the code structure
     code = """async () => {
         try {
-            const result = await mist.request({path: '/api/v1/self'});
+            const result = await central.request({path: '/api/v1/self'});
             return result;
         } catch (e) {
             return {error: e.message};
@@ -164,7 +164,6 @@ async def test_execute_mock_api(sandbox):
     result = await sandbox.run_execute(
         code,
         api_token="test-token",
-        api_host="api.mist.com",
     )
     
     # Will have an error because we don't have a real API token
@@ -174,7 +173,7 @@ async def test_execute_mock_api(sandbox):
 
 @pytest.mark.asyncio
 async def test_execute_blocks_arbitrary_network(sandbox):
-    """Test that execute blocks non-Mist network access."""
+    """Test that execute blocks non-Central network access."""
     code = """async () => {
         const resp = await fetch('https://google.com');
         return await resp.text();
@@ -183,7 +182,6 @@ async def test_execute_blocks_arbitrary_network(sandbox):
     result = await sandbox.run_execute(
         code,
         api_token="test",
-        api_host="api.mist.com",
     )
     
     # Should error due to network restriction
@@ -201,7 +199,6 @@ async def test_execute_blocks_file_operations(sandbox):
     result = await sandbox.run_execute(
         code,
         api_token="test",
-        api_host="api.mist.com",
     )
     
     # Should error due to file write denial

@@ -140,7 +140,6 @@ class TestMar05CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Token should NOT appear in output
@@ -310,7 +309,6 @@ class TestMar05CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Token should NOT appear in output
@@ -454,7 +452,6 @@ class TestMar05CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Token should NOT appear in output

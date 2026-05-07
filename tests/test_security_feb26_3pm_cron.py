@@ -102,7 +102,6 @@ class TestTemporalAPISideChannel:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Token should NOT leak via timing oracle
@@ -197,7 +196,6 @@ class TestReadableStreamTeeBypass:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Token scrubbed even if stream was tee'd and read twice
@@ -284,7 +282,6 @@ class TestMicrotaskInjectionDuringIIFE:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Token NOT leaked via microtask inspection
@@ -372,7 +369,6 @@ class TestProxyHandlerTrapLeakage:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: Token NOT leaked through Proxy interception
@@ -449,7 +445,6 @@ class TestEnvironmentVariableProbing:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # EXPECT: All env access should be denied

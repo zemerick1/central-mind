@@ -86,7 +86,6 @@ class TestFeb26MorningCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token="test_secret_token_12345",
-            api_host="api.mist.com",
         )
         
         # Should NOT contain the actual token
@@ -140,7 +139,6 @@ class TestFeb26MorningCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token="test_secret_token_67890",
-            api_host="api.mist.com",
         )
         
         # Should NOT contain the actual token
@@ -188,7 +186,6 @@ class TestFeb26MorningCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token="test_secret_probe_token",
-            api_host="api.mist.com",
         )
         
         # Should NOT contain the actual token
@@ -248,7 +245,6 @@ class TestResourceTimingAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token="test_timing_token_abc",
-            api_host="api.mist.com",
         )
         
         # Timing data is allowed but should not reveal token
@@ -310,7 +306,6 @@ class TestAdvancedCoercionAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token="test_coercion_token_xyz",
-            api_host="api.mist.com",
         )
         
         # Should NOT contain the actual token

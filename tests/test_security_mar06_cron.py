@@ -73,7 +73,7 @@ class TestMar06CronCheenuAttacks:
         # Run in search mode (no API token)
         result = await sandbox.run_search(
             code,
-            spec_path="spec/mist.resolved.json"
+            spec_path="spec/openAPI.resolved.json"
         )
         
         # Should be blocked by --deny-env and --deny-read
@@ -135,7 +135,6 @@ class TestMar06CronCheenuAttacks:
         result = await sandbox.run_execute(
             code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # All concurrent reads should fail or get EOF since token was consumed
@@ -213,7 +212,6 @@ class TestMar06CronCheenuAttacks:
         result = await sandbox.run_execute(
             code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Should either fail or not find the token
@@ -274,7 +272,7 @@ class TestDenoModuleResolutionSideChannel:
         
         result = await sandbox.run_search(
             code,
-            spec_path="spec/mist.resolved.json"
+            spec_path="spec/openAPI.resolved.json"
         )
         
         # All imports should fail due to --deny-read
@@ -330,7 +328,7 @@ class TestProcessSignalManipulation:
         
         result = await sandbox.run_search(
             code,
-            spec_path="spec/mist.resolved.json"
+            spec_path="spec/openAPI.resolved.json"
         )
         
         # Should timeout (5 seconds) and be killed

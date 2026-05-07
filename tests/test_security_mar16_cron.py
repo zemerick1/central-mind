@@ -114,7 +114,7 @@ class TestMar16CronCheenuAttacks:
             };
         }'''
         
-        result = await sandbox.run_execute(code, test_token, "api.mist.com")
+        result = await sandbox.run_execute(code, test_token)
         
         # Interception should fail - mist is already created
         assert result.get("interceptedData") is None
@@ -194,7 +194,7 @@ class TestMar16CronCheenuAttacks:
             }
         }'''
         
-        result = await sandbox.run_execute(code, test_token, "api.mist.com")
+        result = await sandbox.run_execute(code, test_token)
         
         # Stdin should be exhausted or locked
         assert result.get("leaked") != test_token
@@ -282,7 +282,7 @@ class TestIIFEClosureIntegrity:
             }
         }'''
         
-        result = await sandbox.run_execute(code, test_token, "api.mist.com")
+        result = await sandbox.run_execute(code, test_token)
         
         # _token should NOT be accessible
         assert result.get("hasToken") is not True
@@ -330,7 +330,7 @@ class TestIIFEClosureIntegrity:
             };
         }'''
         
-        result = await sandbox.run_execute(code, test_token, "api.mist.com")
+        result = await sandbox.run_execute(code, test_token)
         
         # _token should not be a global
         assert "_token" not in result.get("suspiciousKeys", [])
@@ -356,7 +356,7 @@ class TestStdinSecurityEdgeCases:
             return {data: "test"};
         }'''
         
-        result = await sandbox.run_execute(code, malicious_token, "api.mist.com")
+        result = await sandbox.run_execute(code, malicious_token)
         
         # Should be rejected before execution
         assert "error" in result
@@ -380,7 +380,7 @@ class TestStdinSecurityEdgeCases:
             return {data: "test", tokenLength: "measured_in_js"};
         }'''
         
-        result = await sandbox.run_execute(code, composed, "api.mist.com")
+        result = await sandbox.run_execute(code, composed)
         
         # Should work fine - unicode is valid in tokens
         # The key is that the token should be scrubbed consistently

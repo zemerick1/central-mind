@@ -58,7 +58,6 @@ class TestFetchResponseHeaderInspection:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Token should NOT appear in any output
@@ -88,7 +87,6 @@ class TestFetchResponseHeaderInspection:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         # Real token should never appear
@@ -130,7 +128,6 @@ class TestStackTraceClosureAdvanced:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         result_str = str(result)
@@ -170,7 +167,6 @@ class TestStackTraceClosureAdvanced:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         result_str = str(result)
@@ -212,7 +208,6 @@ class TestConcurrentRaceConditions:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         result_str = str(result)
@@ -255,7 +250,6 @@ class TestConcurrentRaceConditions:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         result_str = str(result)
@@ -289,7 +283,6 @@ class TestMemoryPressureAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         result_str = str(result)
@@ -328,7 +321,6 @@ class TestMemoryPressureAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com",
         )
         
         result_str = str(result)

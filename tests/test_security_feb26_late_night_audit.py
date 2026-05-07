@@ -39,10 +39,10 @@ def sandbox(deno_path):
 
 
 @pytest.fixture
-def mock_mist_api():
-    """Mock the Mist API for testing."""
-    with patch('centralmind.sandbox.DenoSandbox.central_base_urlS', ['httpbin.org']):
-        yield
+def mock_mist_api(sandbox):
+    """Override sandbox api_host for testing."""
+    sandbox.api_host = "httpbin.org"
+    yield
 
 
 class TestWebAssemblyMemorySideChannel:
@@ -124,7 +124,6 @@ class TestWebAssemblyMemorySideChannel:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-wasm-11111",
-            api_host="httpbin.org",
         )
         
         # Should not leak actual token value
@@ -204,7 +203,6 @@ class TestArrayBufferDetachAttack:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-arraybuffer-22222",
-            api_host="httpbin.org",
         )
         
         # Should not leak token through ArrayBuffer operations
@@ -282,7 +280,6 @@ class TestIntlAPITimingSideChannel:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-intl-33333",
-            api_host="httpbin.org",
         )
         
         # Should not leak token through timing analysis
@@ -390,7 +387,6 @@ class TestAtomicsSharedMemoryAttack:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-atomics-44444",
-            api_host="httpbin.org",
         )
         
         # Should not leak token through SharedArrayBuffer
@@ -455,7 +451,6 @@ class TestURLPatternExploitation:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-urlpattern-55555",
-            api_host="httpbin.org",
         )
         
         # Should not leak token through URLPattern
@@ -548,7 +543,6 @@ class TestCompressionStreamLeak:
         result = await sandbox.run_execute(
             code=code,
             api_token="test-token-compression-66666",
-            api_host="httpbin.org",
         )
         
         # Should not leak token through compression side channel

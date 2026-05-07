@@ -66,7 +66,6 @@ class TestMar02CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Should NOT leak token or provide core API access
@@ -120,7 +119,6 @@ class TestMar02CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Should NOT leak token via prototype poisoning
@@ -162,7 +160,6 @@ class TestMar02CronCheenuAttacks:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Should NOT leak token via dynamic imports
@@ -190,7 +187,6 @@ class TestDenoPermissionsExfiltration:
         """
         code = """async () => {
             const hosts = [
-                'api.mist.com',
                 'evil.com',
                 'internal.mist.com',
                 'localhost'
@@ -226,7 +222,6 @@ class TestDenoPermissionsExfiltration:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Even if we can query permissions, timing should not leak allowlist
@@ -302,7 +297,6 @@ class TestMemoryForensicsV3:
         result = await sandbox.run_execute(
             code=code,
             api_token=SECRET_TOKEN,
-            api_host="api.mist.com"
         )
         
         # Should NOT find token in WASM linear memory
