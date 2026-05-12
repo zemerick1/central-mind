@@ -102,6 +102,7 @@ class CentralMindServer:
                     verify_ssl=config.clearpass_verify_ssl,
                     client_name="clearpass",
                     auth_scheme="Bearer",
+                    base_url=getattr(clearpass_auth, "base_url", None),
                 )
             }
 
@@ -204,11 +205,15 @@ class CentralMindServer:
                 if self.obfuscated:
                     search_desc = (
                         f"JavaScript async arrow function to search the {platform.capitalize()} OpenAPI spec. "
+                        "IMPORTANT: To save context during initial discovery, NEVER return full parameter or schema objects. "
+                        "Return ONLY an array of {method, path, name}. "
+                        "Because some specs lack summaries, fallback to operationId or path segments for the name.\n"
                         "Example: async () => { const results = []; for (const [path, methods] "
                         "of Object.entries(spec.paths)) { for (const [method, op] of "
                         "Object.entries(methods)) { if (op.tags?.some(t => "
-                        't.toLowerCase().includes("wireless"))) results.push({method: '
-                        "method.toUpperCase(), path, summary: op.summary}); } } return results; }"
+                        't.toLowerCase().includes("wireless"))) { '
+                        "const name = op.summary || op.operationId || path.split('/').pop(); "
+                        "results.push({method: method.toUpperCase(), path, name}); } } } return results; }"
                     )
                     execute_desc = (
                         f"Execute JS against the {platform.capitalize()} API. Use {platform}.request({{method, path, body, params}}).\n"
@@ -229,11 +234,15 @@ class CentralMindServer:
                         f"JavaScript async arrow function to search the {platform.capitalize()} OpenAPI spec. "
                         "IMPORTANT: The `spec` object is already loaded in the environment. DO NOT try to read "
                         "the JSON files from disk using cat or python. ONLY use this tool to discover paths and parameters.\n"
+                        "IMPORTANT: To save context during initial discovery, NEVER return full parameter or schema objects. "
+                        "Return ONLY an array of {method, path, name}. "
+                        "Because some specs lack summaries, fallback to operationId or path segments for the name.\n"
                         "Example: async () => { const results = []; for (const [path, methods] "
                         "of Object.entries(spec.paths)) { for (const [method, op] of "
                         "Object.entries(methods)) { if (op.tags?.some(t => "
-                        't.toLowerCase().includes("wlan"))) results.push({method: '
-                        "method.toUpperCase(), path, summary: op.summary}); } } return results; }"
+                        't.toLowerCase().includes("wlan"))) { '
+                        "const name = op.summary || op.operationId || path.split('/').pop(); "
+                        "results.push({method: method.toUpperCase(), path, name}); } } } return results; }"
                     )
                     execute_desc = (
                         f"Execute JS against the {platform.capitalize()} API. Use {platform}.request({{method, path, body, params}}).\n"

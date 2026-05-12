@@ -78,6 +78,7 @@ class DenoSandbox:
         verify_ssl: bool = True,
         client_name: str = "central",
         auth_scheme: str = "Bearer",
+        base_url: Optional[str] = None,
     ):
         """Initialize sandbox with path to Deno binary and security settings.
         
@@ -93,9 +94,11 @@ class DenoSandbox:
             verify_ssl: Whether to verify SSL certificates (default: True)
             client_name: The global variable name for the API client in the sandbox (e.g., 'central', 'mist')
             auth_scheme: The authorization header scheme (e.g., 'Bearer', 'Token')
+            base_url: The full base URL for API requests (if different from https://api_host)
         """
         self.deno_path = deno_path
         self.api_host = api_host
+        self.base_url = base_url
         self.timeout = timeout
         self.api_mode = api_mode
         self.allowed_methods = API_MODE_METHODS.get(api_mode, API_MODE_METHODS["readonly"])
@@ -401,6 +404,7 @@ try {{
         # SECURITY: Token is passed via stdin, NOT embedded in source code
         # This prevents the token from appearing in temp files on disk
         safe_host = _js_safe_string(self.api_host)
+        safe_base_url = _js_safe_string(self.base_url or f"https://{self.api_host}")
         js_methods = json.dumps(self.allowed_methods)
         # IIFE pattern ensures _token is in closure scope, unreachable from user code
         # Also wraps stdin read in try/catch for proper error handling
@@ -425,8 +429,7 @@ const {self.client_name} = await (async () => {{
     get allowedMethods() {{ return __allowedMethods; }},
 
     async request({{method = "GET", path, body, params}}) {{
-      const _host = {safe_host};
-      const _baseUrl = `https://${{_host}}`;
+      const _baseUrl = {safe_base_url};
       
       // Enforce allowed HTTP methods (server-side policy)
       const upperMethod = method.toUpperCase();

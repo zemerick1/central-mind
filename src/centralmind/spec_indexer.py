@@ -44,7 +44,7 @@ def generate_index(spec: dict, force_search_first: bool = False) -> str:
     # Build the index text
     lines = [
         f"Search the {api_title} ({total_ops} endpoints).",
-        "Write a JS async arrow function receiving `spec` (OpenAPI 3.1, all $refs pre-resolved).",
+        "Write a JS async arrow function. The `spec` object (OpenAPI 3.1, all $refs pre-resolved) is available globally.",
         "",
         "=== API HIERARCHY ===",
     ]
