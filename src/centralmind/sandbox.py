@@ -75,17 +75,24 @@ class DenoSandbox:
         rate_limit: int = 30,
         max_concurrent: int = 5,
         obfuscated: bool = False,
+        verify_ssl: bool = True,
+        client_name: str = "central",
+        auth_scheme: str = "Bearer",
     ):
         """Initialize sandbox with path to Deno binary and security settings.
         
         Args:
             deno_path: Path to Deno binary
+            api_host: API host for Deno network allowlist
             timeout: Max execution time in seconds
             api_mode: "readonly" (GET), "readwrite" (GET+POST+PUT+PATCH), "all" (includes DELETE)
             rate_limit: Max executions per minute (0 = unlimited)
             max_concurrent: Max parallel Deno processes
             obfuscated: If True, inject de-obfuscation mapping so obfuscated
                 paths are translated back to real API paths before fetch.
+            verify_ssl: Whether to verify SSL certificates (default: True)
+            client_name: The global variable name for the API client in the sandbox (e.g., 'central', 'mist')
+            auth_scheme: The authorization header scheme (e.g., 'Bearer', 'Token')
         """
         self.deno_path = deno_path
         self.api_host = api_host
@@ -95,6 +102,9 @@ class DenoSandbox:
         self.rate_limit = rate_limit
         self.max_concurrent = max_concurrent
         self.obfuscated = obfuscated
+        self.verify_ssl = verify_ssl
+        self.client_name = client_name
+        self.auth_scheme = auth_scheme
         
         # Rate limiting state
         self._request_times: deque = deque()
@@ -197,7 +207,10 @@ class DenoSandbox:
                 "run",
                 "--no-prompt",
                 "--v8-flags=--max-old-space-size=256",
-            ] + args + [tmp_path]
+            ]
+            if not self.verify_ssl:
+                cmd.append("--unsafely-ignore-certificate-errors")
+            cmd.extend(args + [tmp_path])
             
             logger.debug(f"Running Deno: {' '.join(cmd)}")
             
@@ -394,9 +407,9 @@ try {{
         js_template = f'''// Freeze output function so user code can't override it
 const __output = console.log.bind(console);
 
-// SECURITY: Token read and central object created inside IIFE
+// SECURITY: Token read and client object created inside IIFE
 // _token only exists in closure scope, inaccessible to user code
-const central = await (async () => {{
+const {self.client_name} = await (async () => {{
   let _token;
   try {{
     _token = await new Response(Deno.stdin.readable).text();
@@ -436,12 +449,20 @@ const central = await (async () => {{
         }});
       }}
       
+      const headers = {{
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+      }};
+      
+      if ("{self.auth_scheme}" === "x-api-key") {{
+        headers['x-api-key'] = _token.trim();
+      }} else {{
+        headers['Authorization'] = `{self.auth_scheme} ${{_token}}`.trim();
+      }}
+
       const opts = {{
         method: upperMethod,
-        headers: {{
-          'Authorization': `Bearer ${{_token}}`,
-          'Content-Type': 'application/json',
-        }},
+        headers: headers,
       }};
       
       if (body && upperMethod !== 'GET') {{
@@ -452,7 +473,7 @@ const central = await (async () => {{
       const data = await resp.json();
       
       if (!resp.ok) {{
-        throw new Error(`Aruba Central API error ${{resp.status}}: ${{JSON.stringify(data)}}`);
+        throw new Error(`API error ${{resp.status}}: ${{JSON.stringify(data)}}`);
       }}
       
       return data;
@@ -461,8 +482,8 @@ const central = await (async () => {{
 }})();
 
 // _token does NOT exist here - it's inside the IIFE closure
-// Alias for backward compatibility
-const mist = central;
+// Alias for backward compatibility if mist is used but client is central
+{f"const mist = central;" if self.client_name == "central" else ""}
 const fn = {code};
 
 try {{

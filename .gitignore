@@ -11,6 +11,12 @@ build/
 .venv/
 venv/
 env/
+bin
+include
+lib
+lib64
+pyvenv.cfg
+
 
 # Testing
 .coverage

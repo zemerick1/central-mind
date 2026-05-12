@@ -24,8 +24,31 @@ class ServerConfig(BaseSettings):
         default="https://internal.api.central.arubanetworks.com",
         description="Aruba Central API base URL",
     )
-    central_client_id: str = Field(..., description="Aruba Central OAuth2 client ID (required)")
-    central_client_secret: str = Field(..., description="Aruba Central OAuth2 client secret (required)")
+    central_client_id: str = Field(default="", description="Aruba Central OAuth2 client ID")
+    central_client_secret: str = Field(default="", description="Aruba Central OAuth2 client secret")
+
+    # ClearPass API credentials
+    clearpass_base_url: str = Field(
+        default="https://clearpass.example.com/api",
+        description="ClearPass API base URL",
+    )
+    clearpass_client_id: str = Field(default="", description="ClearPass OAuth2 client ID")
+    clearpass_client_secret: str = Field(default="", description="ClearPass OAuth2 client secret")
+    clearpass_verify_ssl: bool = Field(default=True, description="Verify SSL certificates for ClearPass")
+
+    # Mist API credentials
+    mist_apitoken: str = Field(default="", description="Mist API token")
+    mist_host: str = Field(
+        default="api.mist.com",
+        description="Mist API host",
+    )
+
+    # SDC API credentials
+    sdc_apitoken: str = Field(default="", description="SDC API token")
+    sdc_host: str = Field(
+        default="api.sdcloud.juniperclouds.net",
+        description="SDC API host",
+    )
 
     # CentralMind settings
     centralmind_debug: bool = Field(

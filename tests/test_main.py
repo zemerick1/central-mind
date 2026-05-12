@@ -242,9 +242,8 @@ class TestMainAsyncFunction:
                         
                         # Verify server was created with the custom spec path
                         mock_server.assert_called_once()
-                        call_args = mock_server.call_args[0]
-                        # call_args is (config, auth, spec_path)
-                        assert call_args[2] == str(spec_file)
+                        call_kwargs = mock_server.call_args[1]
+                        assert call_kwargs["central_spec_path"] == str(spec_file)
 
 
 class TestErrorHandling:

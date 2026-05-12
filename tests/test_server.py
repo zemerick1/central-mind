@@ -92,7 +92,7 @@ def server_config(deno_path):
 @pytest.fixture
 def server(server_config, mock_auth, mock_spec_file):
     """Create a CentralMindServer instance for testing."""
-    return CentralMindServer(server_config, mock_auth, mock_spec_file)
+    return CentralMindServer(config=server_config, central_auth=mock_auth, central_spec_path=mock_spec_file)
 
 
 # =============================================================================
@@ -106,7 +106,7 @@ class TestToolListing:
     async def test_list_tools_returns_two_tools(self, server):
         """Tool listing should return exactly 2 tools: search and execute."""
         assert server.server is not None
-        assert server.sandbox is not None
+        assert server.platforms["central"]["sandbox"] is not None
         assert hasattr(server, '_handle_search')
         assert hasattr(server, '_handle_execute')
     
@@ -131,7 +131,7 @@ class TestSearchHandler:
     @pytest.mark.asyncio
     async def test_search_with_valid_code(self, server):
         """Search with valid code returns results."""
-        result = await server._handle_search({
+        result = await server._handle_search("central", {
             "code": "async () => { return Object.keys(spec.paths).length; }"
         })
         
@@ -142,7 +142,7 @@ class TestSearchHandler:
     @pytest.mark.asyncio
     async def test_search_with_missing_code(self, server):
         """Search with missing code parameter returns error."""
-        result = await server._handle_search({})
+        result = await server._handle_search("central", {})
         
         assert len(result) == 1
         assert "Error" in result[0].text
@@ -151,7 +151,7 @@ class TestSearchHandler:
     @pytest.mark.asyncio
     async def test_search_returns_filtered_results(self, server):
         """Search can filter spec by tags."""
-        result = await server._handle_search({
+        result = await server._handle_search("central", {
             "code": """async () => {
                 const results = [];
                 for (const [path, methods] of Object.entries(spec.paths)) {
@@ -181,7 +181,7 @@ class TestExecuteHandler:
     @pytest.mark.asyncio
     async def test_execute_with_valid_code(self, server):
         """Execute with valid code runs successfully."""
-        result = await server._handle_execute({
+        result = await server._handle_execute("central", {
             "code": """async () => {
                 // Just return static data, no actual API call
                 return {test: true, timestamp: Date.now()};
@@ -196,7 +196,7 @@ class TestExecuteHandler:
     @pytest.mark.asyncio
     async def test_execute_with_missing_code(self, server):
         """Execute with missing code parameter returns error."""
-        result = await server._handle_execute({})
+        result = await server._handle_execute("central", {})
         
         assert len(result) == 1
         assert "Error" in result[0].text
@@ -205,7 +205,7 @@ class TestExecuteHandler:
     @pytest.mark.asyncio
     async def test_execute_can_access_central_object(self, server):
         """Execute code can access the central object."""
-        result = await server._handle_execute({
+        result = await server._handle_execute("central", {
             "code": """async () => {
                 return {
                     hasCentral: typeof central !== 'undefined',
@@ -252,10 +252,10 @@ class TestExceptionScrubbing:
         secret_token = "super-secret-token-xyz789"
         mock_auth.get_token.return_value = secret_token
         
-        server = CentralMindServer(server_config, mock_auth, mock_spec_file)
+        server = CentralMindServer(config=server_config, central_auth=mock_auth, central_spec_path=mock_spec_file)
         
         # Execute code that throws an error containing the token
-        result = await server._handle_execute({
+        result = await server._handle_execute("central", {
             "code": f"""async () => {{
                 throw new Error("Token leak: {secret_token}");
             }}"""
@@ -278,18 +278,18 @@ class TestServerInitialization:
     
     def test_server_initializes_with_valid_config(self, server_config, mock_auth, mock_spec_file):
         """Server initializes correctly with valid config."""
-        server = CentralMindServer(server_config, mock_auth, mock_spec_file)
+        server = CentralMindServer(config=server_config, central_auth=mock_auth, central_spec_path=mock_spec_file)
         
         assert server.config == server_config
-        assert server.spec_path.exists()
-        assert server.sandbox is not None
+        assert server.platforms["central"]["spec_path"].exists()
+        assert server.platforms["central"]["sandbox"] is not None
     
     def test_server_fails_with_missing_spec(self, server_config, mock_auth):
         """Server raises error when spec file doesn't exist."""
         with pytest.raises(FileNotFoundError) as exc_info:
-            CentralMindServer(server_config, mock_auth, "/nonexistent/path/spec.json")
+            CentralMindServer(config=server_config, central_auth=mock_auth, central_spec_path="/nonexistent/path/spec.json")
         
-        assert "Resolved spec not found" in str(exc_info.value)
+        assert "No such file or directory" in str(exc_info.value)
     
     def test_server_inherits_api_mode(self, server_config, mock_auth, mock_spec_file):
         """Server sandbox inherits API mode from config."""
@@ -300,10 +300,10 @@ class TestServerInitialization:
             deno_path=server_config.deno_path,
             centralmind_api_mode="readwrite",
         )
-        server = CentralMindServer(config, mock_auth, mock_spec_file)
+        server = CentralMindServer(config=config, central_auth=mock_auth, central_spec_path=mock_spec_file)
         
-        assert server.sandbox.api_mode == "readwrite"
-        assert "POST" in server.sandbox.allowed_methods
+        assert server.platforms["central"]["sandbox"].api_mode == "readwrite"
+        assert "POST" in server.platforms["central"]["sandbox"].allowed_methods
 
 
 # =============================================================================
