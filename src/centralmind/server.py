@@ -9,7 +9,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from .auth import CentralAuth, ClearpassAuth, MistAuth, SdcAuth
+from .auth import CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
 from .config import ServerConfig
 from .sandbox import DenoSandbox
 from .spec_indexer import generate_index_from_file
@@ -31,6 +31,8 @@ class CentralMindServer:
         mist_spec_path: Optional[str] = None,
         sdc_auth: Optional[SdcAuth] = None,
         sdc_spec_path: Optional[str] = None,
+        uxi_auth: Optional[UxiAuth] = None,
+        uxi_spec_path: Optional[str] = None,
     ):
         """Initialize server with config, auth managers, and resolved spec paths."""
         self.config = config
@@ -159,6 +161,35 @@ class CentralMindServer:
                 )
             }
 
+        if uxi_auth and uxi_spec_path:
+            spec_path = Path(uxi_spec_path)
+            if self.obfuscated:
+                from .obfuscator import obfuscate_spec_file
+                spec_path = obfuscate_spec_file(spec_path)
+            
+            logger.info("Generating uxi spec index...")
+            spec_index = generate_index_from_file(
+                str(spec_path), force_search_first=self.obfuscated
+            )
+            
+            self.platforms["uxi"] = {
+                "auth": uxi_auth,
+                "spec_path": spec_path,
+                "spec_index": spec_index,
+                "sandbox": DenoSandbox(
+                    deno_path=config.deno_path,
+                    api_host=uxi_auth.host,
+                    timeout=30,
+                    api_mode=config.centralmind_api_mode,
+                    rate_limit=config.centralmind_rate_limit,
+                    max_concurrent=config.centralmind_max_concurrent,
+                    obfuscated=self.obfuscated,
+                    verify_ssl=config.uxi_verify_ssl,
+                    client_name="uxi",
+                    auth_scheme="Bearer",
+                )
+            }
+
         self._register_handlers()
 
     def _register_handlers(self):
@@ -180,17 +211,17 @@ class CentralMindServer:
                         "method.toUpperCase(), path, summary: op.summary}); } } return results; }"
                     )
                     execute_desc = (
-                        f"Execute JS against the {platform.capitalize()} API. Use central.request({{method, path, body, params}}).\n"
+                        f"Execute JS against the {platform.capitalize()} API. Use {platform}.request({{method, path, body, params}}).\n"
                         "IMPORTANT: You MUST use the `search` tool first to find exact paths and "
                         "parameters — your pre-trained knowledge of this API will not apply.\n"
                         "method defaults to GET. Chain multiple calls, filter/transform results in JS.\n"
-                        "central.allowedMethods shows permitted HTTP methods.\n"
+                        f"{platform}.allowedMethods shows permitted HTTP methods.\n"
                         "For paginated results: check if total > results.length, loop with page/start params."
                     )
                     execute_example = (
                         "JavaScript async arrow function to execute. "
                         "Paths must include their full prefix from the spec. "
-                        'Example: async () => { const result = await central.request({path: "/network-monitoring/v1/aps", params: {limit: 5}}); '
+                        f'Example: async () => {{ const result = await {platform}.request({{path: "/network-monitoring/v1/aps", params: {{limit: 5}}}}); '
                         "return result; }"
                     )
                 else:
@@ -205,16 +236,16 @@ class CentralMindServer:
                         "method.toUpperCase(), path, summary: op.summary}); } } return results; }"
                     )
                     execute_desc = (
-                        f"Execute JS against the {platform.capitalize()} API. Use central.request({{method, path, body, params}}).\n"
+                        f"Execute JS against the {platform.capitalize()} API. Use {platform}.request({{method, path, body, params}}).\n"
                         "method defaults to GET. Chain multiple calls, filter/transform results in JS.\n"
-                        "central.allowedMethods shows permitted HTTP methods.\n"
+                        f"{platform}.allowedMethods shows permitted HTTP methods.\n"
                         "For paginated results: check if total > results.length, loop with page/start params.\n"
                         "For write ops: return a preview first, execute write only after user confirms."
                     )
                     execute_example = (
                         "JavaScript async arrow function to execute. "
                         "Paths must include their full prefix from the spec. "
-                        'Example: async () => { const result = await central.request({path: "/network-monitoring/v1/aps", params: {limit: 5}}); '
+                        f'Example: async () => {{ const result = await {platform}.request({{path: "/network-monitoring/v1/aps", params: {{limit: 5}}}}); '
                         "return result; }"
                     )
 

@@ -50,6 +50,15 @@ class ServerConfig(BaseSettings):
         description="SDC API host",
     )
 
+    # UXI API credentials
+    uxi_client_id: str = Field(default="", description="UXI OAuth2 client ID")
+    uxi_client_secret: str = Field(default="", description="UXI OAuth2 client secret")
+    uxi_host: str = Field(
+        default="api.capenetworks.com",
+        description="UXI API host",
+    )
+    uxi_verify_ssl: bool = Field(default=True, description="Verify SSL certificates for UXI")
+
     # CentralMind settings
     centralmind_debug: bool = Field(
         default=False,

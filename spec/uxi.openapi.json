@@ -1,0 +1,697 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "HPE Aruba Networking User Experience Insight (UXI) API",
+    "version": "1.0.2",
+    "description": "API for HPE Aruba Networking User Experience Insight (UXI). Extracted from pyhpeuxi SDK."
+  },
+  "servers": [
+    {
+      "url": "https://api.capenetworks.com",
+      "description": "Main API Service"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "oAuth2ClientCredentials": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://sso.common.cloud.hpe.com/as/token.oauth2",
+            "scopes": {}
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "oAuth2ClientCredentials": []
+    }
+  ],
+  "paths": {
+    "/networking-uxi/v1alpha1/agents": {
+      "get": {
+        "summary": "Agents Get",
+        "operationId": "get_agents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/agents/{id}": {
+      "delete": {
+        "summary": "Agent Delete",
+        "operationId": "delete_agent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the agent"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Agent Patch",
+        "operationId": "update_agent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the agent"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the agent"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "The notes of the agent"
+                  },
+                  "pcapMode": {
+                    "type": "string",
+                    "enum": [
+                      "light",
+                      "full",
+                      "off"
+                    ],
+                    "description": "Options are: ['light', 'full', 'off']"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/agent-group-assignments": {
+      "get": {
+        "summary": "Agent Group Assignments Get",
+        "operationId": "get_group_agent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Agent Group Assignment Post",
+        "operationId": "new_group_agent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "groupId",
+                  "agentId"
+                ],
+                "properties": {
+                  "groupId": {
+                    "type": "string",
+                    "description": "The unique identifier of the group"
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "description": "The unique identifier of the agent"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/agent-group-assignments/{id}": {
+      "delete": {
+        "summary": "Agent Group Assignment Delete",
+        "operationId": "delete_group_agent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the assignment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/groups": {
+      "get": {
+        "summary": "Groups Get",
+        "operationId": "get_groups",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Group Post",
+        "operationId": "new_new_group",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "parentId": {
+                    "type": "string",
+                    "description": "The unique identifier of the parent group"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the group"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/groups/{id}": {
+      "delete": {
+        "summary": "Group Delete",
+        "operationId": "delete_group",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the group"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Group Patch",
+        "operationId": "update_group",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the group"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The updated group name"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/network-group-assignments": {
+      "get": {
+        "summary": "Network Group Assignments Get",
+        "operationId": "get_group_network",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Network Group Assignment Post",
+        "operationId": "new_group_network",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "groupId",
+                  "networkId"
+                ],
+                "properties": {
+                  "groupId": {
+                    "type": "string",
+                    "description": "The unique identifier of the group"
+                  },
+                  "networkId": {
+                    "type": "string",
+                    "description": "The unique identifier of the network"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/network-group-assignments/{id}": {
+      "delete": {
+        "summary": "Network Group Assignment Delete",
+        "operationId": "delete_group_network",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the network group assignment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/sensor-group-assignments": {
+      "get": {
+        "summary": "Sensor Group Assignments Get",
+        "operationId": "get_group_sensor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Sensor Group Assignment Post",
+        "operationId": "new_group_sensor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "groupId",
+                  "sensorId"
+                ],
+                "properties": {
+                  "groupId": {
+                    "type": "string",
+                    "description": "The unique identifier of the group"
+                  },
+                  "sensorId": {
+                    "type": "string",
+                    "description": "The unique identifier of the sensor"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/sensor-group-assignments/{id}": {
+      "delete": {
+        "summary": "Sensor Group Assignment Delete",
+        "operationId": "delete_group_sensor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the sensor group assignment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/sensors": {
+      "get": {
+        "summary": "Sensors Get",
+        "operationId": "get_sensors",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/sensors/{id}": {
+      "patch": {
+        "summary": "Sensor Patch",
+        "operationId": "update_sensor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the sensor"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The updated sensor name"
+                  },
+                  "addressNote": {
+                    "type": "string",
+                    "description": "The updated address note for the sensor"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "Additional notes for the sensor"
+                  },
+                  "pcapMode": {
+                    "type": "string",
+                    "enum": [
+                      "light",
+                      "full",
+                      "off"
+                    ],
+                    "description": "Options are: ['light', 'full', 'off']"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/service-test-group-assignments": {
+      "get": {
+        "summary": "Service Test Group Assignments Get",
+        "operationId": "get_test_service",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Service Test Group Assignment Post",
+        "operationId": "new_test_service",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "groupId",
+                  "serviceTestId"
+                ],
+                "properties": {
+                  "groupId": {
+                    "type": "string",
+                    "description": "The unique identifier of the group"
+                  },
+                  "serviceTestId": {
+                    "type": "string",
+                    "description": "The unique identifier of the service test"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/service-test-group-assignments/{id}": {
+      "delete": {
+        "summary": "Service Test Group Assignment Delete",
+        "operationId": "delete_test_service",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The unique identifier of the service test group assignment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/service-tests": {
+      "get": {
+        "summary": "Service Tests Get",
+        "operationId": "get_tests_service",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/wired-networks": {
+      "get": {
+        "summary": "Wired Networks Get",
+        "operationId": "get_networks_wired",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/networking-uxi/v1alpha1/wireless-networks": {
+      "get": {
+        "summary": "Wireless Networks Get",
+        "operationId": "get_networks_wireless",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "description": "the id of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    }
+  }
+}
