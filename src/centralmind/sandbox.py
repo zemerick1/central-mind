@@ -470,6 +470,10 @@ const {self.client_name} = await (async () => {{
       
       if ("{self.auth_scheme}" === "x-api-key") {{
         headers['x-api-key'] = _token.trim();
+      }} else if ("{self.auth_scheme}" === "aoscx-cookie") {{
+        const parts = _token.split("|||");
+        if (parts[0]) headers['Cookie'] = parts[0].trim();
+        if (parts[1]) headers['X-Csrf-Token'] = parts[1].trim();
       }} else if ("{self.auth_scheme}" === "x-csrf-token") {{
         headers['x-csrf-token'] = _token.trim();
       }} else {{

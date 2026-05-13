@@ -61,11 +61,12 @@ def test_aoscx_auth_login():
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.headers = {"X-Csrf-Token": "mock-csrf-token"}
+        mock_response.cookies = {"sessionId": "testcookie"}
         mock_post.return_value = mock_response
         
         token = auth.get_token("10.1.1.1", "v10.13")
         
-        assert token == "mock-csrf-token"
+        assert token == "sessionId=testcookie|||mock-csrf-token"
         mock_post.assert_called_once()
         
         # Verify call arguments
@@ -84,22 +85,24 @@ def test_aoscx_auth_cache():
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.headers = {"X-Csrf-Token": "token1"}
+        mock_response.cookies = {"sessionId": "cookie1"}
         mock_post.return_value = mock_response
         
         # First call to switch 1
         t1 = auth.get_token("10.1.1.1", "v10.13")
-        assert t1 == "token1"
+        assert t1 == "sessionId=cookie1|||token1"
         assert mock_post.call_count == 1
         
         # Second call to switch 1 (should be cached)
         t1_cached = auth.get_token("10.1.1.1", "v10.13")
-        assert t1_cached == "token1"
+        assert t1_cached == "sessionId=cookie1|||token1"
         assert mock_post.call_count == 1
         
         # Call to switch 2
         mock_response.headers = {"X-Csrf-Token": "token2"}
+        mock_response.cookies = {"sessionId": "cookie2"}
         t2 = auth.get_token("10.2.2.2", "v10.13")
-        assert t2 == "token2"
+        assert t2 == "sessionId=cookie2|||token2"
         assert mock_post.call_count == 2
 
 
@@ -122,8 +125,11 @@ async def test_aoscx_server_integration(mock_spec_file, deno_path):
         aoscx_spec_path=mock_spec_file
     )
     
-    # 1. Verify Tool Listing includes extra params
-    tools = await server.server._list_tools()
+    import mcp.types
+    req = mcp.types.ListToolsRequest(method="tools/list")
+    resp = await server.server.request_handlers[mcp.types.ListToolsRequest](req)
+    tools = resp.root.tools
+    
     execute_tool = next(t for t in tools if t.name == "execute_aoscx")
     
     properties = execute_tool.inputSchema["properties"]

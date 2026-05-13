@@ -210,19 +210,15 @@ class ClearpassAuth:
         return parsed.hostname or self.base_url
 
 
-class MistAuth:
-    """In-memory API token manager for Mist.
-    
-    Since Mist uses static API tokens instead of OAuth, this class
-    simply wraps the token to match the interface of other auth classes.
-    """
+class StaticTokenAuth:
+    """Base class for APIs using static tokens instead of OAuth."""
 
     def __init__(self, api_token: str, host: str):
         """Initialize with token and host.
 
         Args:
-            api_token: Mist API token
-            host: Mist API host (e.g., api.mist.com)
+            api_token: API token string
+            host: API host domain
         """
         self._access_token = api_token
         self._host = host
@@ -241,31 +237,19 @@ class MistAuth:
         return self._host
 
 
-class SdcAuth:
+class MistAuth(StaticTokenAuth):
+    """In-memory API token manager for Mist."""
+    pass
+
+
+class AxisAuth(StaticTokenAuth):
+    """In-memory API token manager for Axis Security."""
+    pass
+
+
+class SdcAuth(StaticTokenAuth):
     """In-memory API token manager for Security Director Cloud (SDC)."""
-
-    def __init__(self, api_token: str, host: str):
-        """Initialize with token and host.
-
-        Args:
-            api_token: SDC API token
-            host: SDC API host (e.g., api.sdcloud.juniperclouds.net)
-        """
-        self._access_token = api_token
-        self._host = host
-
-    def get_token(self) -> str:
-        """Return the API token.
-
-        Returns:
-            Current API token string
-        """
-        return self._access_token
-
-    @property
-    def host(self) -> str:
-        """Return the API host for Deno network allowlist."""
-        return self._host
+    pass
 
 
 class UxiAuth:
@@ -432,7 +416,8 @@ class AoscxAuth:
                     f"Headers: {list(response.headers.keys())}"
                 )
             
-            return token
+            cookie_header = "; ".join([f"{k}={v}" for k, v in response.cookies.items()])
+            return f"{cookie_header}|||{token}"
 
         except httpx.HTTPStatusError as e:
             raise RuntimeError(

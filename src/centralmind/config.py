@@ -43,6 +43,13 @@ class ServerConfig(BaseSettings):
         description="Mist API host",
     )
 
+    # Axis Security API credentials
+    axis_apitoken: str = Field(default="", description="Axis API token")
+    axis_host: str = Field(
+        default="admin-api.axissecurity.com",
+        description="Axis API host",
+    )
+
     # SDC API credentials
     sdc_apitoken: str = Field(default="", description="SDC API token")
     sdc_host: str = Field(

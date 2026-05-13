@@ -9,7 +9,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from .auth import AoscxAuth, CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
+from .auth import AoscxAuth, AxisAuth, CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
 from .config import ServerConfig
 from .sandbox import DenoSandbox
 from .spec_indexer import generate_index_from_file
@@ -29,6 +29,8 @@ class CentralMindServer:
         clearpass_spec_path: Optional[str] = None,
         mist_auth: Optional[MistAuth] = None,
         mist_spec_path: Optional[str] = None,
+        axis_auth: Optional[AxisAuth] = None,
+        axis_spec_path: Optional[str] = None,
         sdc_auth: Optional[SdcAuth] = None,
         sdc_spec_path: Optional[str] = None,
         uxi_auth: Optional[UxiAuth] = None,
@@ -136,6 +138,34 @@ class CentralMindServer:
                 )
             }
 
+        if axis_auth and axis_spec_path:
+            spec_path = Path(axis_spec_path)
+            if self.obfuscated:
+                from .obfuscator import obfuscate_spec_file
+                spec_path = obfuscate_spec_file(spec_path)
+            
+            logger.info("Generating axis spec index...")
+            spec_index = generate_index_from_file(
+                str(spec_path), force_search_first=self.obfuscated
+            )
+            
+            self.platforms["axis"] = {
+                "auth": axis_auth,
+                "spec_path": spec_path,
+                "spec_index": spec_index,
+                "sandbox": DenoSandbox(
+                    deno_path=config.deno_path,
+                    api_host=axis_auth.host,
+                    timeout=30,
+                    api_mode=config.centralmind_api_mode,
+                    rate_limit=config.centralmind_rate_limit,
+                    max_concurrent=config.centralmind_max_concurrent,
+                    obfuscated=self.obfuscated,
+                    client_name="axis",
+                    auth_scheme="Bearer",
+                )
+            }
+
         if sdc_auth and sdc_spec_path:
             spec_path = Path(sdc_spec_path)
             if self.obfuscated:
@@ -218,7 +248,7 @@ class CentralMindServer:
                     obfuscated=self.obfuscated,
                     verify_ssl=config.aoscx_verify_ssl,
                     client_name="aoscx",
-                    auth_scheme="x-csrf-token",
+                    auth_scheme="aoscx-cookie",
                 ),
                 "extra_params": {
                     "switch_ip": {
@@ -365,7 +395,7 @@ class CentralMindServer:
                 error_msg = str(e)
                 # Scrub token from exception messages
                 for platform, data in self.platforms.items():
-                    current_token = data["auth"]._access_token
+                    current_token = getattr(data["auth"], "_access_token", None)
                     if current_token:
                         error_msg = error_msg.replace(current_token, "[REDACTED]")
                 return [
