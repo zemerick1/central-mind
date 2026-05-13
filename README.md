@@ -9,7 +9,7 @@ CentralMind is a fork of [**MistMind**](https://github.com/nagarjun226/mistmind)
 - **HPE Networking Security Director Cloud (SDC)** (62+ endpoints)
 - **HPE Aruba Clearpass** (796+ endpoints)
 - **HPE Aruba Networking User Experience Insight (UXI)** (24+ endpoints)
-- **HPE Aruba Networking AOS-CX Switches** (Dynamic targeting)
+- **HPE Aruba Networking AOS-CX Switches** (672+ endpoints)
 
 ---
 
