@@ -11,7 +11,7 @@ CentralMind is a fork of [**MistMind**](https://github.com/nagarjun226/mistmind)
 - **HPE Aruba Networking User Experience Insight (UXI)** (24+ endpoints)
 - **HPE Aruba Networking AOS-CX Switches** (672+ endpoints)
   - *Note: AOS-CX supports dynamic endpoint generation. The Username and Password must be the same for every switch in the `.env` file.*
-- **Axis Security** (70 endpoints)
+- **HPE Axis Security** (70 endpoints)
 
 ---
 
