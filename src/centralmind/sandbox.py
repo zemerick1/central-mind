@@ -384,12 +384,16 @@ try {{
         self,
         code: str,
         api_token: str,
+        api_host: Optional[str] = None,
+        base_url: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Execute JavaScript code with `central` client available.
+        """Execute JavaScript code with the API client available.
         
         Args:
             code: JavaScript async arrow function to execute
-            api_token: Aruba Central Bearer access token
+            api_token: API authentication token
+            api_host: Optional override for the API host (for dynamic targeting)
+            base_url: Optional override for the base URL
         
         Returns:
             Result of the function execution or error dict
@@ -400,14 +404,21 @@ try {{
         if any(c in api_token for c in '\r\n\x00'):
             return {"error": "API token contains invalid characters"}
         
-        # Build JavaScript wrapper with central client
+        target_host = api_host or self.api_host
+        
+        # If api_host was passed as a full URL, extract the hostname for --allow-net
+        if "://" in target_host:
+            from urllib.parse import urlparse
+            parsed = urlparse(target_host)
+            target_host = parsed.hostname or target_host
+
+        target_base_url = base_url or self.base_url or f"https://{target_host}"
+        
+        # Build JavaScript wrapper with API client
         # SECURITY: Token is passed via stdin, NOT embedded in source code
-        # This prevents the token from appearing in temp files on disk
-        safe_host = _js_safe_string(self.api_host)
-        safe_base_url = _js_safe_string(self.base_url or f"https://{self.api_host}")
+        safe_base_url = _js_safe_string(target_base_url)
         js_methods = json.dumps(self.allowed_methods)
         # IIFE pattern ensures _token is in closure scope, unreachable from user code
-        # Also wraps stdin read in try/catch for proper error handling
         js_template = f'''// Freeze output function so user code can't override it
 const __output = console.log.bind(console);
 
@@ -459,6 +470,8 @@ const {self.client_name} = await (async () => {{
       
       if ("{self.auth_scheme}" === "x-api-key") {{
         headers['x-api-key'] = _token.trim();
+      }} else if ("{self.auth_scheme}" === "x-csrf-token") {{
+        headers['x-csrf-token'] = _token.trim();
       }} else {{
         headers['Authorization'] = `{self.auth_scheme} ${{_token}}`.trim();
       }}
@@ -497,14 +510,22 @@ try {{
 }}
 '''
         
-        # Deno permissions: allow network for Aruba Central host only
+        # Deno permissions: allow network for the target host
         deno_args = [
-            f"--allow-net={self.api_host}",
+            f"--allow-net={target_host}",
             "--deny-read",
             "--deny-write",
             "--deny-env",
             "--deny-run",
         ]
+        
+        # Pass token via stdin and scrub from all output
+        return await self._run_deno(
+            js_template,
+            deno_args,
+            stdin_data=api_token.encode("utf-8"),
+            token_to_scrub=api_token,
+        )
         
         # Pass token via stdin and scrub from all output
         return await self._run_deno(

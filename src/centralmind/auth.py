@@ -364,3 +364,89 @@ class UxiAuth:
         """Return the API host for Deno network allowlist."""
         return self._host
 
+
+class AoscxAuth:
+    """In-memory CSRF token manager for HPE Aruba Networking AOS-CX.
+
+    Supports multiple switches by caching tokens per switch IP.
+    """
+
+    def __init__(self, username: str, password: str, verify_ssl: bool = False):
+        """Initialize with administrator credentials.
+
+        Args:
+            username: AOS-CX administrator username
+            password: AOS-CX administrator password
+            verify_ssl: Whether to verify SSL certificates (default: False)
+        """
+        self.username = username
+        self.password = password
+        self.verify_ssl = verify_ssl
+        self._tokens: Dict[str, str] = {}  # {host: token}
+
+    def get_token(self, switch_ip: str, version: str) -> str:
+        """Return a valid CSRF token for the specified switch.
+
+        Args:
+            switch_ip: IP address or hostname of the switch (e.g., 10.1.1.1)
+            version: API version (e.g., v10.13)
+
+        Returns:
+            CSRF token string
+        """
+        base_url = switch_ip.rstrip("/")
+        if not base_url.startswith(("http://", "https://")):
+            base_url = f"https://{base_url}"
+
+        if base_url not in self._tokens:
+            logger.info(f"Logging in to AOS-CX switch: {base_url}")
+            self._tokens[base_url] = self._login(base_url, version)
+
+        return self._tokens[base_url]
+
+    def _login(self, base_url: str, version: str) -> str:
+        """Perform login to get a CSRF token."""
+        login_url = f"{base_url}/rest/{version}/login"
+        
+        try:
+            response = httpx.post(
+                login_url,
+                params={
+                    "username": self.username,
+                    "password": self.password,
+                },
+                headers={
+                    "Accept": "*/*",
+                    "x-use-csrf-token": "true",
+                },
+                timeout=10,
+                verify=self.verify_ssl,
+            )
+            response.raise_for_status()
+            
+            # Token is in X-Csrf-Token header
+            token = response.headers.get("X-Csrf-Token")
+            if not token:
+                raise RuntimeError(
+                    f"Login successful but 'X-Csrf-Token' header missing from response. "
+                    f"Headers: {list(response.headers.keys())}"
+                )
+            
+            return token
+
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(
+                f"Failed to login to AOS-CX switch ({base_url}): "
+                f"HTTP {e.response.status_code} — {e.response.text}"
+            ) from e
+        except httpx.RequestError as e:
+            raise RuntimeError(
+                f"Failed to connect to AOS-CX switch ({base_url}): {e}"
+            ) from e
+
+    @property
+    def host(self) -> str:
+        """This property is used for Deno's --allow-net.
+        For AOS-CX, we return '*' or handle it dynamically in run_execute.
+        """
+        return "*"

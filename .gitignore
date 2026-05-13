@@ -25,6 +25,9 @@ htmlcov/
 .tox/
 .nox/
 
+# Specs
+*.resolved.json
+spec/*.resolved.json
 # IDEs
 .vscode/
 .idea/

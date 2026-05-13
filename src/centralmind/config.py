@@ -59,6 +59,11 @@ class ServerConfig(BaseSettings):
     )
     uxi_verify_ssl: bool = Field(default=True, description="Verify SSL certificates for UXI")
 
+    # AOS-CX credentials
+    aoscx_username: str = Field(default="", description="AOS-CX administrator username")
+    aoscx_password: str = Field(default="", description="AOS-CX administrator password")
+    aoscx_verify_ssl: bool = Field(default=False, description="Verify SSL certificates for AOS-CX")
+
     # CentralMind settings
     centralmind_debug: bool = Field(
         default=False,

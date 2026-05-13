@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 
 from . import __version__
-from .auth import CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
+from .auth import AoscxAuth, CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
 from .config import ServerConfig
 from .server import CentralMindServer
 
@@ -96,8 +96,16 @@ async def main(args: argparse.Namespace):
         except RuntimeError as e:
             print(f"Warning: UXI authentication failed: {e}", file=sys.stderr)
 
-    if not central_auth and not clearpass_auth and not mist_auth and not sdc_auth and not uxi_auth:
-        print("Error: No valid authentication credentials provided for Central, ClearPass, Mist, SDC, or UXI.", file=sys.stderr)
+    aoscx_auth = None
+    if config.aoscx_username and config.aoscx_password:
+        aoscx_auth = AoscxAuth(
+            username=config.aoscx_username,
+            password=config.aoscx_password,
+            verify_ssl=config.aoscx_verify_ssl,
+        )
+
+    if not any([central_auth, clearpass_auth, mist_auth, sdc_auth, uxi_auth, aoscx_auth]):
+        print("Error: No valid authentication credentials provided for Central, ClearPass, Mist, SDC, UXI, or AOS-CX.", file=sys.stderr)
         sys.exit(1)
 
     # Determine spec paths
@@ -161,6 +169,13 @@ async def main(args: argparse.Namespace):
             print(f"Error: UXI spec not found at {uxi_spec_path}", file=sys.stderr)
             sys.exit(1)
 
+    aoscx_spec_path = None
+    if aoscx_auth:
+        aoscx_spec_path = project_root / "spec" / "aoscx.openapi.json"
+        if not aoscx_spec_path.exists():
+            print(f"Error: AOS-CX spec not found at {aoscx_spec_path}", file=sys.stderr)
+            sys.exit(1)
+
     # Create and run server
     try:
         server = CentralMindServer(
@@ -175,6 +190,8 @@ async def main(args: argparse.Namespace):
             sdc_spec_path=str(sdc_spec_path) if sdc_spec_path else None,
             uxi_auth=uxi_auth,
             uxi_spec_path=str(uxi_spec_path) if uxi_spec_path else None,
+            aoscx_auth=aoscx_auth,
+            aoscx_spec_path=str(aoscx_spec_path) if aoscx_spec_path else None,
         )
         await server.run()
     except KeyboardInterrupt:

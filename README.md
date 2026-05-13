@@ -9,6 +9,7 @@ CentralMind is a fork of [**MistMind**](https://github.com/nagarjun226/mistmind)
 - **HPE Networking Security Director Cloud (SDC)** (62+ endpoints)
 - **HPE Aruba Clearpass** (796+ endpoints)
 - **HPE Aruba Networking User Experience Insight (UXI)** (24+ endpoints)
+- **HPE Aruba Networking AOS-CX Switches** (Dynamic targeting)
 
 ---
 
@@ -239,6 +240,9 @@ CentralMind is built with defense-in-depth:
 | `UXI_CLIENT_SECRET`| HPE Aruba Networking UXI OAuth2 client secret | |
 | `UXI_HOST`| HPE Aruba Networking UXI API host | `api.capenetworks.com` |
 | `UXI_VERIFY_SSL`| Verify SSL certificates for UXI | `true` |
+| `AOSCX_USERNAME`| AOS-CX administrator username | |
+| `AOSCX_PASSWORD`| AOS-CX administrator password | |
+| `AOSCX_VERIFY_SSL`| Verify SSL certificates for AOS-CX | `false` |
 | `CENTRALMIND_API_MODE` | `readonly` / `readwrite` / `all` | `readonly` |
 | `CENTRALMIND_RATE_LIMIT` | Requests per minute (0=unlimited) | `30` |
 | `CENTRALMIND_MAX_CONCURRENT`| Max parallel sandbox processes | `5` |
