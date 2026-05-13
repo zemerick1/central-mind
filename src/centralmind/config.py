@@ -43,6 +43,13 @@ class ServerConfig(BaseSettings):
         description="Mist API host",
     )
 
+    # Axis Security API credentials
+    axis_apitoken: str = Field(default="", description="Axis API token")
+    axis_host: str = Field(
+        default="admin-api.axissecurity.com",
+        description="Axis API host",
+    )
+
     # SDC API credentials
     sdc_apitoken: str = Field(default="", description="SDC API token")
     sdc_host: str = Field(
@@ -58,6 +65,11 @@ class ServerConfig(BaseSettings):
         description="UXI API host",
     )
     uxi_verify_ssl: bool = Field(default=True, description="Verify SSL certificates for UXI")
+
+    # AOS-CX credentials
+    aoscx_username: str = Field(default="", description="AOS-CX administrator username")
+    aoscx_password: str = Field(default="", description="AOS-CX administrator password")
+    aoscx_verify_ssl: bool = Field(default=False, description="Verify SSL certificates for AOS-CX")
 
     # CentralMind settings
     centralmind_debug: bool = Field(

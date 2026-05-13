@@ -9,7 +9,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from .auth import CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
+from .auth import AoscxAuth, AxisAuth, CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
 from .config import ServerConfig
 from .sandbox import DenoSandbox
 from .spec_indexer import generate_index_from_file
@@ -29,10 +29,14 @@ class CentralMindServer:
         clearpass_spec_path: Optional[str] = None,
         mist_auth: Optional[MistAuth] = None,
         mist_spec_path: Optional[str] = None,
+        axis_auth: Optional[AxisAuth] = None,
+        axis_spec_path: Optional[str] = None,
         sdc_auth: Optional[SdcAuth] = None,
         sdc_spec_path: Optional[str] = None,
         uxi_auth: Optional[UxiAuth] = None,
         uxi_spec_path: Optional[str] = None,
+        aoscx_auth: Optional[AoscxAuth] = None,
+        aoscx_spec_path: Optional[str] = None,
     ):
         """Initialize server with config, auth managers, and resolved spec paths."""
         self.config = config
@@ -134,6 +138,34 @@ class CentralMindServer:
                 )
             }
 
+        if axis_auth and axis_spec_path:
+            spec_path = Path(axis_spec_path)
+            if self.obfuscated:
+                from .obfuscator import obfuscate_spec_file
+                spec_path = obfuscate_spec_file(spec_path)
+            
+            logger.info("Generating axis spec index...")
+            spec_index = generate_index_from_file(
+                str(spec_path), force_search_first=self.obfuscated
+            )
+            
+            self.platforms["axis"] = {
+                "auth": axis_auth,
+                "spec_path": spec_path,
+                "spec_index": spec_index,
+                "sandbox": DenoSandbox(
+                    deno_path=config.deno_path,
+                    api_host=axis_auth.host,
+                    timeout=30,
+                    api_mode=config.centralmind_api_mode,
+                    rate_limit=config.centralmind_rate_limit,
+                    max_concurrent=config.centralmind_max_concurrent,
+                    obfuscated=self.obfuscated,
+                    client_name="axis",
+                    auth_scheme="Bearer",
+                )
+            }
+
         if sdc_auth and sdc_spec_path:
             spec_path = Path(sdc_spec_path)
             if self.obfuscated:
@@ -189,6 +221,47 @@ class CentralMindServer:
                     client_name="uxi",
                     auth_scheme="Bearer",
                 )
+            }
+
+        if aoscx_auth and aoscx_spec_path:
+            spec_path = Path(aoscx_spec_path)
+            if self.obfuscated:
+                from .obfuscator import obfuscate_spec_file
+                spec_path = obfuscate_spec_file(spec_path)
+            
+            logger.info("Generating aoscx spec index...")
+            spec_index = generate_index_from_file(
+                str(spec_path), force_search_first=self.obfuscated
+            )
+            
+            self.platforms["aoscx"] = {
+                "auth": aoscx_auth,
+                "spec_path": spec_path,
+                "spec_index": spec_index,
+                "sandbox": DenoSandbox(
+                    deno_path=config.deno_path,
+                    api_host=aoscx_auth.host, # This is "*"
+                    timeout=30,
+                    api_mode=config.centralmind_api_mode,
+                    rate_limit=config.centralmind_rate_limit,
+                    max_concurrent=config.centralmind_max_concurrent,
+                    obfuscated=self.obfuscated,
+                    verify_ssl=config.aoscx_verify_ssl,
+                    client_name="aoscx",
+                    auth_scheme="aoscx-cookie",
+                ),
+                "extra_params": {
+                    "switch_ip": {
+                        "type": "string",
+                        "description": "IP address or hostname of the AOS-CX switch"
+                    },
+                    "version": {
+                        "type": "string",
+                        "description": "API version to use (e.g., v10.13)",
+                        "default": "v10.13"
+                    }
+                },
+                "required_params": ["switch_ip"]
             }
 
         self._register_handlers()
@@ -258,18 +331,33 @@ class CentralMindServer:
                         "return result; }"
                     )
 
+                # Build tool schemas, merging any platform-specific extra parameters
+                search_properties = {
+                    "code": {
+                        "type": "string",
+                        "description": search_desc,
+                    }
+                }
+                execute_properties = {
+                    "code": {
+                        "type": "string",
+                        "description": execute_example,
+                    }
+                }
+                execute_required = ["code"]
+                
+                if "extra_params" in data:
+                    execute_properties.update(data["extra_params"])
+                if "required_params" in data:
+                    execute_required.extend(data["required_params"])
+
                 tools.extend([
                     Tool(
                         name=f"search_{platform}",
                         description=data["spec_index"],
                         inputSchema={
                             "type": "object",
-                            "properties": {
-                                "code": {
-                                    "type": "string",
-                                    "description": search_desc,
-                                }
-                            },
+                            "properties": search_properties,
                             "required": ["code"],
                         },
                     ),
@@ -278,13 +366,8 @@ class CentralMindServer:
                         description=execute_desc,
                         inputSchema={
                             "type": "object",
-                            "properties": {
-                                "code": {
-                                    "type": "string",
-                                    "description": execute_example,
-                                }
-                            },
-                            "required": ["code"],
+                            "properties": execute_properties,
+                            "required": execute_required,
                         },
                     ),
                 ])
@@ -312,7 +395,7 @@ class CentralMindServer:
                 error_msg = str(e)
                 # Scrub token from exception messages
                 for platform, data in self.platforms.items():
-                    current_token = data["auth"]._access_token
+                    current_token = getattr(data["auth"], "_access_token", None)
                     if current_token:
                         error_msg = error_msg.replace(current_token, "[REDACTED]")
                 return [
@@ -350,13 +433,29 @@ class CentralMindServer:
         logger.info(f"Executing {platform} API call with code length: {len(code)}")
         
         data = self.platforms[platform]
-        # Get current token (auto-refreshes if expired)
-        token = data["auth"].get_token()
         
-        result = await data["sandbox"].run_execute(
-            code=code,
-            api_token=token,
-        )
+        # Determine token and execution parameters
+        if platform == "aoscx":
+            switch_ip = arguments.get("switch_ip")
+            version = arguments.get("version", "v10.13")
+            if not switch_ip:
+                return [TextContent(type="text", text="Error: 'switch_ip' parameter required for AOS-CX")]
+            
+            token = data["auth"].get_token(switch_ip, version)
+            # Override host and base_url for dynamic switch targeting
+            result = await data["sandbox"].run_execute(
+                code=code,
+                api_token=token,
+                api_host=switch_ip,
+                base_url=f"https://{switch_ip}/rest/{version}" if "://" not in switch_ip else f"{switch_ip}/rest/{version}"
+            )
+        else:
+            # Get current token (auto-refreshes if expired)
+            token = data["auth"].get_token()
+            result = await data["sandbox"].run_execute(
+                code=code,
+                api_token=token,
+            )
         
         # Format result as text
         result_text = json.dumps(result, indent=2)

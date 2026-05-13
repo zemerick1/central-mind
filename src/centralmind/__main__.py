@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 
 from . import __version__
-from .auth import CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
+from .auth import AoscxAuth, AxisAuth, CentralAuth, ClearpassAuth, MistAuth, SdcAuth, UxiAuth
 from .config import ServerConfig
 from .server import CentralMindServer
 
@@ -77,6 +77,13 @@ async def main(args: argparse.Namespace):
             host=config.mist_host,
         )
 
+    axis_auth = None
+    if config.axis_apitoken:
+        axis_auth = AxisAuth(
+            api_token=config.axis_apitoken,
+            host=config.axis_host,
+        )
+
     sdc_auth = None
     if config.sdc_apitoken:
         sdc_auth = SdcAuth(
@@ -96,8 +103,16 @@ async def main(args: argparse.Namespace):
         except RuntimeError as e:
             print(f"Warning: UXI authentication failed: {e}", file=sys.stderr)
 
-    if not central_auth and not clearpass_auth and not mist_auth and not sdc_auth and not uxi_auth:
-        print("Error: No valid authentication credentials provided for Central, ClearPass, Mist, SDC, or UXI.", file=sys.stderr)
+    aoscx_auth = None
+    if config.aoscx_username and config.aoscx_password:
+        aoscx_auth = AoscxAuth(
+            username=config.aoscx_username,
+            password=config.aoscx_password,
+            verify_ssl=config.aoscx_verify_ssl,
+        )
+
+    if not any([central_auth, clearpass_auth, mist_auth, sdc_auth, uxi_auth, aoscx_auth]):
+        print("Error: No valid authentication credentials provided for Central, ClearPass, Mist, SDC, UXI, or AOS-CX.", file=sys.stderr)
         sys.exit(1)
 
     # Determine spec paths
@@ -147,6 +162,13 @@ async def main(args: argparse.Namespace):
             print(f"Error: Mist spec not found at {mist_spec_path}", file=sys.stderr)
             sys.exit(1)
 
+    axis_spec_path = None
+    if axis_auth:
+        axis_spec_path = project_root / "spec" / "axis.resolved.json"
+        if not axis_spec_path.exists():
+            print(f"Error: Axis spec not found at {axis_spec_path}", file=sys.stderr)
+            sys.exit(1)
+
     sdc_spec_path = None
     if sdc_auth:
         sdc_spec_path = project_root / "spec" / "sdc.resolved.json"
@@ -161,6 +183,13 @@ async def main(args: argparse.Namespace):
             print(f"Error: UXI spec not found at {uxi_spec_path}", file=sys.stderr)
             sys.exit(1)
 
+    aoscx_spec_path = None
+    if aoscx_auth:
+        aoscx_spec_path = project_root / "spec" / "aoscx.openapi.json"
+        if not aoscx_spec_path.exists():
+            print(f"Error: AOS-CX spec not found at {aoscx_spec_path}", file=sys.stderr)
+            sys.exit(1)
+
     # Create and run server
     try:
         server = CentralMindServer(
@@ -171,10 +200,14 @@ async def main(args: argparse.Namespace):
             clearpass_spec_path=str(clearpass_spec_path) if clearpass_spec_path else None,
             mist_auth=mist_auth,
             mist_spec_path=str(mist_spec_path) if mist_spec_path else None,
+            axis_auth=axis_auth,
+            axis_spec_path=str(axis_spec_path) if axis_spec_path else None,
             sdc_auth=sdc_auth,
             sdc_spec_path=str(sdc_spec_path) if sdc_spec_path else None,
             uxi_auth=uxi_auth,
             uxi_spec_path=str(uxi_spec_path) if uxi_spec_path else None,
+            aoscx_auth=aoscx_auth,
+            aoscx_spec_path=str(aoscx_spec_path) if aoscx_spec_path else None,
         )
         await server.run()
     except KeyboardInterrupt:
