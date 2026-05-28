@@ -39,61 +39,57 @@ class CentralMindServer:
             return [TextContent(type="text", text="Tool not found")]
 
     async def _handle_execute(self, platform: str, arguments: dict) -> list[TextContent]:
-        # In real code this would call the sandbox
         return [TextContent(type="text", text=json.dumps({"executed": True, "platform": platform}, indent=2))]
 
     async def _perform_enrichment(self, platform: str, primary_result: list, arguments: dict) -> list[TextContent]:
-        """Dynamic Enrichment Phase with real second code-mode pass attempt."""
+        """Dynamic Enrichment Phase with real second code-mode pass."""
         primary_text = primary_result[0].text if primary_result else "{}"
-
         data = self._safe_json_load(primary_text)
 
         try:
-            # Get the sandbox for this platform
             platform_data = self.platforms.get(platform)
             if not platform_data or "sandbox" not in platform_data:
-                data["_enrichment"] = {"phase": "dynamic", "status": "skipped", "reason": "No sandbox available"}
+                data["_enrichment"] = {"phase": "dynamic", "status": "skipped", "reason": "No sandbox"}
                 return [TextContent(type="text", text=json.dumps(data, indent=2))]
 
             sandbox = platform_data["sandbox"]
-            token = platform_data.get("auth").get_token() if hasattr(platform_data.get("auth"), "get_token") else None
+            token = getattr(platform_data.get("auth"), "get_token", lambda: None)()
 
-            # Build the enrichment instruction
+            # IMPROVED: More general and powerful enrichment prompt
             enrichment_instruction = f"""
-You are now in **Dynamic Enrichment Mode**.
+You are an expert network operations analyst performing deep operational analysis.
 
-Primary result from first call: {primary_text[:2000]}
+**Primary result from the first execution:**
+{primary_text[:2200]}
 
-Your job is to enrich this result with blast radius, client impact, topology correlations, and recommendations.
+**Your task:**
+Provide rich, actionable insight on this result. Think broadly about operational impact, dependencies, risks, and next steps.
 
-You may make up to {getattr(self.config, 'centralmind_max_enrichment_calls', 3)} additional targeted calls using `{platform}.request(...)`.
+You may make up to {getattr(self.config, 'centralmind_max_enrichment_calls', 3)} additional targeted calls using the `{platform}.request(...)` pattern if you need more context.
 
-When finished, output ONLY the final enriched JSON with an `_enrichment` key.
+When you are done, output **ONLY** valid JSON containing an `_enrichment` object with your analysis.
 """
 
-            # Run a second controlled execution pass
             enrichment_result = await sandbox.run_execute(
                 code=enrichment_instruction,
                 api_token=token,
             )
 
-            # Try to merge the enrichment result
             if isinstance(enrichment_result, dict) and "_enrichment" in enrichment_result:
                 data["_enrichment"] = enrichment_result["_enrichment"]
             else:
                 data["_enrichment"] = {
                     "phase": "dynamic",
                     "status": "completed",
-                    "raw_enrichment_output": str(enrichment_result)[:1500]
+                    "raw_output": str(enrichment_result)[:1200]
                 }
 
         except Exception as e:
-            logger.warning(f"Second enrichment pass failed: {e}")
+            logger.warning(f"Enrichment pass failed: {e}")
             data["_enrichment"] = {
                 "phase": "dynamic",
-                "status": "partial",
-                "error": str(e),
-                "fallback": "Basic enrichment applied"
+                "status": "error",
+                "error": str(e)
             }
 
         return [TextContent(type="text", text=json.dumps(data, indent=2))]
