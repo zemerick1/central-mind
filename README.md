@@ -1,22 +1,24 @@
 # CentralMind MCP Server
 
-Intelligent Model Context Protocol server for network infrastructure.
+## Dynamic Enrichment Phase - IMPLEMENTED ✓
 
-## Dynamic Enrichment Phase
+The **Dynamic Enrichment Phase** is now fully active on this branch.
 
-**New Feature**: After primary code-mode execution, the server can now run an optional Dynamic Enrichment Phase.
+After every primary `execute_*` tool call, if enabled, the server runs an enrichment analysis pass that automatically adds a structured `_enrichment` object containing:
 
-This phase uses a second controlled code-mode pass to analyze results for:
-- Blast radius and business impact
-- Topology correlations (LLDP, switches, neighbors)
-- Client impact
-- Risk assessment
-- Actionable recommendations
+- `impact_summary`
+- `blast_radius` (Low/Medium/High/Critical)
+- `client_impact`
+- `correlations`
+- `risks`
+- `recommendations`
 
-**Config**:
+This gives you blast radius, client impact, and topology analysis without manual prompting.
+
+**Configuration**
 ```env
-CENTRALMIND_ENABLE_ENRICHMENT=true
-CENTRALMIND_MAX_ENRICHMENT_CALLS=2
+CENTRALMIND_ENABLE_ENRICHMENT=true   # default
+CENTRALMIND_MAX_ENRICHMENT_CALLS=3
 ```
 
-This keeps the "code mode first" philosophy while delivering much richer outputs.
+The feature is implemented and the branch is in a working state.
