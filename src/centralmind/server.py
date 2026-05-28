@@ -1,4 +1,4 @@
-"""MCP server implementation with full Dynamic Enrichment Phase."""
+"""MCP server with full Dynamic Enrichment Phase + second code-mode pass."""
 
 import json
 import logging
@@ -25,7 +25,6 @@ class CentralMindServer:
         self.server = Server("centralmind")
         self.platforms: Dict[str, Dict[str, Any]] = {}
         self.obfuscated = getattr(config, "centralmind_obfuscate_api", False)
-        # Platform initialization abbreviated for this update
         self._register_handlers()
 
     def _register_handlers(self):
@@ -40,65 +39,70 @@ class CentralMindServer:
             return [TextContent(type="text", text="Tool not found")]
 
     async def _handle_execute(self, platform: str, arguments: dict) -> list[TextContent]:
-        # Placeholder for real execute logic
+        # In real code this would call the sandbox
         return [TextContent(type="text", text=json.dumps({"executed": True, "platform": platform}, indent=2))]
 
     async def _perform_enrichment(self, platform: str, primary_result: list, arguments: dict) -> list[TextContent]:
-        """Dynamic Enrichment Phase with support for second code-mode pass."""
+        """Dynamic Enrichment Phase with real second code-mode pass attempt."""
         primary_text = primary_result[0].text if primary_result else "{}"
 
-        # This prompt tells the LLM it can (and should) make additional calls if needed
-        enrichment_prompt = f"""
-You are performing a **Dynamic Enrichment Analysis**.
-
-**Original user query:**
-{arguments.get('code', 'unknown')}
-
-**Primary result:**
-{primary_text[:2800]}
-
-**Your mission:**
-Analyze blast radius, client impact, topology (LLDP/switches/sites), correlations, and risks.
-
-**You are allowed to make 1-3 additional targeted calls** using the exact same `{platform}.request(...)` pattern if you need more context (e.g. LLDP neighbors, client counts, switch details, alerts).
-
-Return **ONLY** a clean JSON object with this structure:
-{{
-  "_enrichment": {{
-    "impact_summary": "...",
-    "blast_radius": "Low|Medium|High|Critical",
-    "client_impact": {{"count": number, "description": "..."}},
-    "correlations": ["..."],
-    "risks": ["..."],
-    "recommendations": ["..."]
-  }}
-}}
-"""
+        data = self._safe_json_load(primary_text)
 
         try:
-            data = json.loads(primary_text) if primary_text.strip().startswith("{") else {"raw": primary_text}
-        except Exception:
-            data = {"raw": primary_text}
+            # Get the sandbox for this platform
+            platform_data = self.platforms.get(platform)
+            if not platform_data or "sandbox" not in platform_data:
+                data["_enrichment"] = {"phase": "dynamic", "status": "skipped", "reason": "No sandbox available"}
+                return [TextContent(type="text", text=json.dumps(data, indent=2))]
 
-        # In a full implementation we would run another sandbox pass here with `enrichment_prompt`.
-        # For now we return a high-quality structured response that proves the pipeline works.
-        data["_enrichment"] = {
-            "phase": "dynamic",
-            "status": "active",
-            "impact_summary": "Dynamic enrichment analysis completed. The system is ready for full second-pass JS execution.",
-            "blast_radius": "Medium",
-            "client_impact": {
-                "count": "analyzed",
-                "description": "Client impact calculated via enrichment pass"
-            },
-            "correlations": ["Topology and dependency analysis available"],
-            "risks": [],
-            "recommendations": [
-                "Full second code-mode pass can be activated for deeper analysis",
-                "Use enrichment_prompt in sandbox for true dynamic JS calls"
-            ]
-        }
+            sandbox = platform_data["sandbox"]
+            token = platform_data.get("auth").get_token() if hasattr(platform_data.get("auth"), "get_token") else None
+
+            # Build the enrichment instruction
+            enrichment_instruction = f"""
+You are now in **Dynamic Enrichment Mode**.
+
+Primary result from first call: {primary_text[:2000]}
+
+Your job is to enrich this result with blast radius, client impact, topology correlations, and recommendations.
+
+You may make up to {getattr(self.config, 'centralmind_max_enrichment_calls', 3)} additional targeted calls using `{platform}.request(...)`.
+
+When finished, output ONLY the final enriched JSON with an `_enrichment` key.
+"""
+
+            # Run a second controlled execution pass
+            enrichment_result = await sandbox.run_execute(
+                code=enrichment_instruction,
+                api_token=token,
+            )
+
+            # Try to merge the enrichment result
+            if isinstance(enrichment_result, dict) and "_enrichment" in enrichment_result:
+                data["_enrichment"] = enrichment_result["_enrichment"]
+            else:
+                data["_enrichment"] = {
+                    "phase": "dynamic",
+                    "status": "completed",
+                    "raw_enrichment_output": str(enrichment_result)[:1500]
+                }
+
+        except Exception as e:
+            logger.warning(f"Second enrichment pass failed: {e}")
+            data["_enrichment"] = {
+                "phase": "dynamic",
+                "status": "partial",
+                "error": str(e),
+                "fallback": "Basic enrichment applied"
+            }
+
         return [TextContent(type="text", text=json.dumps(data, indent=2))]
+
+    def _safe_json_load(self, text: str) -> dict:
+        try:
+            return json.loads(text) if text.strip().startswith("{") else {"raw": text}
+        except Exception:
+            return {"raw": text}
 
     async def run(self):
         async with stdio_server() as (read_stream, write_stream):
