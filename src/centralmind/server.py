@@ -1,1 +1,1 @@
-PLACEHOLDER - full implementation coming
+[FULL CLEAN IMPLEMENTATION HERE]
