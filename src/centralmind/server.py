@@ -509,7 +509,10 @@ class CentralMindServer:
                             if v in (None, False, 0, "", [], {}):
                                 continue
                             
-                            v_str = str(v)
+                            if isinstance(v, (dict, list, tuple, set)):
+                                v_str = f"<{type(v).__name__} of length {len(v)}>"
+                            else:
+                                v_str = str(v)
                             if len(v_str) > 200:
                                 v_str = v_str[:200]
                             errors_found.append(f"Key '{k}' contains anomaly keyword: {v_str}")
