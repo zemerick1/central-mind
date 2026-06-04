@@ -175,11 +175,37 @@ class TestMainAsyncFunction:
         args.debug = False
         
         with patch("centralmind.__main__.load_dotenv") as mock_load_dotenv:
-            with patch("centralmind.__main__.ServerConfig"):
-                with pytest.raises(SystemExit):
-                    # Will fail due to spec not existing
-                    from centralmind.__main__ import main
-                    await main(args)
+            with patch("centralmind.__main__.ServerConfig") as mock_config:
+                cfg = mock_config.return_value
+                cfg.centralmind_debug = False
+                cfg.centralmind_spec_path = None
+                cfg.central_client_id = "test_id"
+                cfg.central_client_secret = "test_secret"
+                cfg.central_base_url = "https://test.example.com"
+                
+                # Platforms not being tested default to None or empty strings
+                cfg.clearpass_client_id = ""
+                cfg.clearpass_client_secret = ""
+                cfg.mist_apitoken = ""
+                cfg.axis_apitoken = ""
+                cfg.sdc_apitoken = ""
+                cfg.uxi_client_id = ""
+                cfg.uxi_client_secret = ""
+                cfg.aoscx_username = ""
+                cfg.aoscx_password = ""
+
+                with patch("centralmind.__main__.CentralAuth") as mock_central_auth, \
+                     patch("centralmind.__main__.ClearpassAuth") as mock_clearpass_auth, \
+                     patch("centralmind.__main__.UxiAuth") as mock_uxi_auth, \
+                     patch("centralmind.__main__.CentralMindServer") as mock_server:
+                    
+                    async def mock_run():
+                        raise SystemExit(0)
+                    mock_server.return_value.run = mock_run
+                    
+                    with pytest.raises(SystemExit):
+                        from centralmind.__main__ import main
+                        await main(args)
                 
                 # Verify load_dotenv was called with the path
                 mock_load_dotenv.assert_called()
@@ -194,15 +220,34 @@ class TestMainAsyncFunction:
         with patch("centralmind.__main__.load_dotenv"):
             with patch("centralmind.__main__.ServerConfig") as mock_config:
                 # Mock config to return a spec path that doesn't exist
-                mock_config.return_value.centralmind_debug = False
-                mock_config.return_value.centralmind_spec_path = "/nonexistent/spec.json"
+                cfg = mock_config.return_value
+                cfg.centralmind_debug = False
+                cfg.centralmind_spec_path = "/nonexistent/spec.json"
+                cfg.central_client_id = "test-id"
+                cfg.central_client_secret = "test-secret"
+                cfg.central_base_url = "https://test.example.com"
                 
-                from centralmind.__main__ import main
+                # Platforms not being tested default to None or empty strings
+                cfg.clearpass_client_id = ""
+                cfg.clearpass_client_secret = ""
+                cfg.mist_apitoken = ""
+                cfg.axis_apitoken = ""
+                cfg.sdc_apitoken = ""
+                cfg.uxi_client_id = ""
+                cfg.uxi_client_secret = ""
+                cfg.aoscx_username = ""
+                cfg.aoscx_password = ""
                 
-                with pytest.raises(SystemExit) as exc_info:
-                    await main(args)
-                
-                assert exc_info.value.code == 1
+                with patch("centralmind.__main__.CentralAuth") as mock_central_auth, \
+                     patch("centralmind.__main__.ClearpassAuth") as mock_clearpass_auth, \
+                     patch("centralmind.__main__.UxiAuth") as mock_uxi_auth:
+                    
+                    from centralmind.__main__ import main
+                    
+                    with pytest.raises(SystemExit) as exc_info:
+                        await main(args)
+                    
+                    assert exc_info.value.code == 1
 
     @pytest.mark.asyncio
     async def test_uses_config_spec_path_if_set(self, tmp_path):
@@ -219,13 +264,27 @@ class TestMainAsyncFunction:
         
         with patch("centralmind.__main__.load_dotenv"):
             with patch("centralmind.__main__.ServerConfig") as mock_config:
-                mock_config.return_value.centralmind_debug = False
-                mock_config.return_value.centralmind_spec_path = str(spec_file)
-                mock_config.return_value.central_client_id = "test-id"
-                mock_config.return_value.central_client_secret = "test-secret"
-                mock_config.return_value.central_base_url = "https://test.example.com"
+                cfg = mock_config.return_value
+                cfg.centralmind_debug = False
+                cfg.centralmind_spec_path = str(spec_file)
+                cfg.central_client_id = "test-id"
+                cfg.central_client_secret = "test-secret"
+                cfg.central_base_url = "https://test.example.com"
                 
-                with patch("centralmind.__main__.CentralAuth") as mock_auth:
+                # Platforms not being tested default to None or empty strings
+                cfg.clearpass_client_id = ""
+                cfg.clearpass_client_secret = ""
+                cfg.mist_apitoken = ""
+                cfg.axis_apitoken = ""
+                cfg.sdc_apitoken = ""
+                cfg.uxi_client_id = ""
+                cfg.uxi_client_secret = ""
+                cfg.aoscx_username = ""
+                cfg.aoscx_password = ""
+                
+                with patch("centralmind.__main__.CentralAuth") as mock_auth, \
+                     patch("centralmind.__main__.ClearpassAuth") as mock_clearpass_auth, \
+                     patch("centralmind.__main__.UxiAuth") as mock_uxi_auth:
                     mock_auth.return_value.host = "test.example.com"
                     mock_auth.return_value.get_token.return_value = "test-token"
                     

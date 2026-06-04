@@ -54,3 +54,5 @@ spec/openAPI.json.old
 # Temporary fix scripts
 fix_tests.py
 .FullName
+docs/*.md
+.agents/
