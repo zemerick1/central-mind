@@ -169,81 +169,73 @@ class TestMainAsyncFunction:
         """Should load specified env file."""
         env_file = tmp_path / ".env.test"
         env_file.write_text("CENTRAL_CLIENT_ID=test_id\n")
-        
+
         args = MagicMock()
         args.env_file = str(env_file)
         args.debug = False
-        
+
         with patch("centralmind.__main__.load_dotenv") as mock_load_dotenv:
-            with patch("centralmind.__main__.ServerConfig"):
-                with pytest.raises(SystemExit):
-                    # Will fail due to spec not existing
-                    from centralmind.__main__ import main
-                    await main(args)
-                
-                # Verify load_dotenv was called with the path
+            with patch("centralmind.__main__.ServerConfig") as mock_config_cls:
+                mock_config_cls.return_value.centralmind_debug = False
+                with patch("centralmind.__main__.ClientsStore") as mock_store_cls:
+                    mock_store_cls.return_value.migrate_from_env.return_value = None
+                    mock_store_cls.return_value.is_empty.return_value = True
+                    with pytest.raises(SystemExit):
+                        # No clients configured -> exits(1) before touching the server
+                        from centralmind.__main__ import main
+                        await main(args)
+
                 mock_load_dotenv.assert_called()
 
     @pytest.mark.asyncio
-    async def test_exits_when_spec_not_found(self):
-        """Should exit with error when spec file not found."""
+    async def test_exits_when_no_clients_configured(self, tmp_path, capsys):
+        """Should exit with error when no clients are configured and nothing to migrate."""
         args = MagicMock()
         args.env_file = None
         args.debug = False
-        
+
         with patch("centralmind.__main__.load_dotenv"):
-            with patch("centralmind.__main__.ServerConfig") as mock_config:
-                # Mock config to return a spec path that doesn't exist
-                mock_config.return_value.centralmind_debug = False
-                mock_config.return_value.centralmind_spec_path = "/nonexistent/spec.json"
-                
-                from centralmind.__main__ import main
-                
-                with pytest.raises(SystemExit) as exc_info:
-                    await main(args)
-                
-                assert exc_info.value.code == 1
+            with patch("centralmind.__main__.ServerConfig") as mock_config_cls:
+                mock_config_cls.return_value.centralmind_debug = False
+                with patch("centralmind.__main__.ClientsStore") as mock_store_cls:
+                    mock_store_cls.return_value.migrate_from_env.return_value = None
+                    mock_store_cls.return_value.is_empty.return_value = True
+
+                    from centralmind.__main__ import main
+
+                    with pytest.raises(SystemExit) as exc_info:
+                        await main(args)
+
+                    assert exc_info.value.code == 1
+                    assert "No clients configured" in capsys.readouterr().err
 
     @pytest.mark.asyncio
-    async def test_uses_config_spec_path_if_set(self, tmp_path):
-        """Should use config spec path if CENTRALMIND_SPEC_PATH is set."""
-        # Create a fake spec file
-        spec_file = tmp_path / "custom.json"
-        spec_file.write_text('{"openapi": "3.1.0", "info": {}, "paths": {}}')
-        
+    async def test_runs_stdio_server_when_clients_configured(self, tmp_path):
+        """Should build and run the server when at least one client exists."""
         args = MagicMock()
         args.env_file = None
         args.debug = False
-        
-        from centralmind.__main__ import main
-        
+        args.transport = "stdio"
+
         with patch("centralmind.__main__.load_dotenv"):
-            with patch("centralmind.__main__.ServerConfig") as mock_config:
-                mock_config.return_value.centralmind_debug = False
-                mock_config.return_value.centralmind_spec_path = str(spec_file)
-                mock_config.return_value.central_client_id = "test-id"
-                mock_config.return_value.central_client_secret = "test-secret"
-                mock_config.return_value.central_base_url = "https://test.example.com"
-                
-                with patch("centralmind.__main__.CentralAuth") as mock_auth:
-                    mock_auth.return_value.host = "test.example.com"
-                    mock_auth.return_value.get_token.return_value = "test-token"
-                    
-                    with patch("centralmind.__main__.CentralMindServer") as mock_server:
-                        # Mock the server run method to be a coroutine
-                        async def mock_run():
-                            raise Exception("Test stop")
-                        
-                        mock_server.return_value.run = mock_run
-                        
-                        # Expect SystemExit due to error handling
-                        with pytest.raises(SystemExit):
-                            await main(args)
-                        
-                        # Verify server was created with the custom spec path
-                        mock_server.assert_called_once()
-                        call_kwargs = mock_server.call_args[1]
-                        assert call_kwargs["central_spec_path"] == str(spec_file)
+            with patch("centralmind.__main__.ServerConfig") as mock_config_cls:
+                mock_config_cls.return_value.centralmind_debug = False
+                with patch("centralmind.__main__.ClientsStore") as mock_store_cls:
+                    mock_store_cls.return_value.migrate_from_env.return_value = None
+                    mock_store_cls.return_value.is_empty.return_value = False
+
+                    with patch("centralmind.__main__.CentralMindServer") as mock_server_cls:
+                        async def mock_run_stdio():
+                            pass
+
+                        mock_server_cls.return_value.run_stdio = mock_run_stdio
+
+                        from centralmind.__main__ import main
+                        await main(args)
+
+                        mock_server_cls.assert_called_once()
+                        call_kwargs = mock_server_cls.call_args[1]
+                        assert call_kwargs["clients_store"] is mock_store_cls.return_value
 
 
 class TestErrorHandling:

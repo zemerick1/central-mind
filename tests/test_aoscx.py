@@ -9,6 +9,7 @@ import pytest
 import httpx
 
 from centralmind.auth import AoscxAuth
+from centralmind.clients_store import ClientsStore
 from centralmind.config import ServerConfig
 from centralmind.server import CentralMindServer
 
@@ -107,52 +108,59 @@ def test_aoscx_auth_cache():
 
 
 @pytest.mark.asyncio
-async def test_aoscx_server_integration(mock_spec_file, deno_path):
+async def test_aoscx_server_integration(mock_spec_file, deno_path, monkeypatch):
     """Test AOS-CX tool registration and execution flow in the server."""
-    config = ServerConfig(
-        aoscx_username="admin",
-        aoscx_password="password",
-        deno_path=deno_path
+    config = ServerConfig(deno_path=deno_path)
+
+    clients_store = ClientsStore(
+        path=Path(tempfile.gettempdir()) / "test_aoscx_clients.json",
+        key_path=Path(tempfile.gettempdir()) / "test_aoscx_secret.key",
     )
-    
+    clients_store.create(name="default", aoscx_username="admin", aoscx_password="password")
+
     mock_auth = MagicMock(spec=AoscxAuth)
     mock_auth.get_token.return_value = "fake-csrf"
     mock_auth.host = "*"
-    
+    monkeypatch.setattr("centralmind.server.build_platform_auth", lambda platform, profile: mock_auth)
+
     server = CentralMindServer(
         config=config,
-        aoscx_auth=mock_auth,
-        aoscx_spec_path=mock_spec_file
+        clients_store=clients_store,
+        resolved_spec_paths={"aoscx": mock_spec_file},
     )
-    
+
     import mcp.types
     req = mcp.types.ListToolsRequest(method="tools/list")
     resp = await server.server.request_handlers[mcp.types.ListToolsRequest](req)
     tools = resp.root.tools
-    
+
     execute_tool = next(t for t in tools if t.name == "execute_aoscx")
-    
+
     properties = execute_tool.inputSchema["properties"]
     assert "switch_ip" in properties
     assert "version" in properties
     assert "code" in properties
     assert "switch_ip" in execute_tool.inputSchema["required"]
-    
+
     # 2. Verify Execution passes dynamic params to sandbox
-    with patch.object(server.platforms["aoscx"]["sandbox"], "run_execute", new_callable=AsyncMock) as mock_run:
+    bundle = server._get_bundle(server._get_active_client_id(), "aoscx")
+    with patch.object(bundle["sandbox"], "run_execute", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = {"status": "success"}
-        
+
         result = await server._handle_execute("aoscx", {
             "code": "async () => ({})",
             "switch_ip": "10.1.1.1",
             "version": "v10.13"
         })
-        
+
         assert "success" in result[0].text
-        
+
         # Verify sandbox was called with correct overrides
         mock_run.assert_called_once()
         kwargs = mock_run.call_args[1]
         assert kwargs["api_host"] == "10.1.1.1"
         assert kwargs["base_url"] == "https://10.1.1.1/rest/v10.13"
         assert kwargs["api_token"] == "fake-csrf"
+
+    clients_store.path.unlink(missing_ok=True)
+    clients_store.key_path.unlink(missing_ok=True)
