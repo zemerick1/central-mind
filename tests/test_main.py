@@ -223,6 +223,7 @@ class TestMainAsyncFunction:
                 with patch("centralmind.__main__.ClientsStore") as mock_store_cls:
                     mock_store_cls.return_value.migrate_from_env.return_value = None
                     mock_store_cls.return_value.is_empty.return_value = False
+                    mock_store_cls.return_value.get_server_api_mode.return_value = None
 
                     with patch("centralmind.__main__.CentralMindServer") as mock_server_cls:
                         async def mock_run_stdio():
@@ -236,6 +237,36 @@ class TestMainAsyncFunction:
                         mock_server_cls.assert_called_once()
                         call_kwargs = mock_server_cls.call_args[1]
                         assert call_kwargs["clients_store"] is mock_store_cls.return_value
+
+    @pytest.mark.asyncio
+    async def test_admin_configured_server_api_mode_overrides_config(self, tmp_path):
+        """A server_api_mode stored via the admin UI should override whatever
+        CENTRALMIND_API_MODE/.env resolved to, before the server is built."""
+        args = MagicMock()
+        args.env_file = None
+        args.debug = False
+        args.transport = "stdio"
+
+        with patch("centralmind.__main__.load_dotenv"):
+            with patch("centralmind.__main__.ServerConfig") as mock_config_cls:
+                mock_config_cls.return_value.centralmind_debug = False
+                mock_config_cls.return_value.centralmind_api_mode = "readonly"
+                with patch("centralmind.__main__.ClientsStore") as mock_store_cls:
+                    mock_store_cls.return_value.migrate_from_env.return_value = None
+                    mock_store_cls.return_value.is_empty.return_value = False
+                    mock_store_cls.return_value.get_server_api_mode.return_value = "all"
+
+                    with patch("centralmind.__main__.CentralMindServer") as mock_server_cls:
+                        async def mock_run_stdio():
+                            pass
+
+                        mock_server_cls.return_value.run_stdio = mock_run_stdio
+
+                        from centralmind.__main__ import main
+                        await main(args)
+
+                        call_kwargs = mock_server_cls.call_args[1]
+                        assert call_kwargs["config"].centralmind_api_mode == "all"
 
 
 class TestErrorHandling:

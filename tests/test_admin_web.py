@@ -109,3 +109,33 @@ class TestCreateClientFormValidation:
             data={"name": "Acme", "api_mode": "super-admin"},
         )
         assert store.is_empty()
+
+
+class TestServerSettingsPage:
+    def test_shows_no_override_by_default(self, client):
+        r = client.get("/server-settings?token=test-token")
+        assert r.status_code == 200
+        assert "no admin override" in r.text
+
+    def test_setting_override_persists(self, client, store):
+        r = client.post("/server-settings?token=test-token", data={"server_api_mode": "readwrite"})
+        assert r.status_code == 200  # TestClient follows the redirect
+        assert store.get_server_api_mode() == "readwrite"
+
+    def test_page_reflects_current_override(self, client, store):
+        store.set_server_api_mode("all")
+        r = client.get("/server-settings?token=test-token")
+        assert "an admin override of <strong>all</strong>" in r.text
+
+    def test_clearing_override_via_inherit_option(self, client, store):
+        store.set_server_api_mode("readwrite")
+        client.post("/server-settings?token=test-token", data={"server_api_mode": ""})
+        assert store.get_server_api_mode() is None
+
+    def test_invalid_value_is_ignored(self, client, store):
+        client.post("/server-settings?token=test-token", data={"server_api_mode": "god-mode"})
+        assert store.get_server_api_mode() is None
+
+    def test_warning_copy_mentions_restart_requirement(self, client):
+        r = client.get("/server-settings?token=test-token")
+        assert "restarted" in r.text.lower()

@@ -238,6 +238,16 @@ Each client can optionally override the global `CENTRALMIND_API_MODE` (readonly/
 
 Changing a client's mode (or credentials) in the admin UI takes effect immediately for that client's next tool call — no server restart required.
 
+### Changing the server's own ceiling
+
+The ceiling itself (`CENTRALMIND_API_MODE`) is normally set once, at launch, via an environment variable or `.env` — deliberately, so raising it takes a distinct, out-of-band action rather than a stray click. If you'd rather change it from `centralmind admin` → **Server settings** instead of editing that config, you can — but a few things are different about this setting compared to everything else in the admin UI:
+
+- **It does not take effect on an already-running server.** The admin UI and the actual MCP-serving process are separate processes; saving a new ceiling here only applies the *next time the MCP server process itself is restarted*. This is unlike per-client credential/mode edits, which do apply immediately (see above) — the global ceiling specifically is read once, at process startup.
+- **It's global.** Raising it raises the maximum for every client at once, not just the one you're thinking about.
+- **It weakens the "deliberate action" property mentioned above.** Anyone who can reach the admin UI can now change the ceiling too, not just add/edit client credentials — that's a real, intentional trade of a safety speed bump for convenience, not a side effect to be surprised by.
+- An admin-set value here takes precedence over `CENTRALMIND_API_MODE`/`.env` on the next startup; choosing "Inherit server default" clears the override and goes back to whatever the launch environment specifies (or `readonly` if that's also unset).
+- After restarting, confirm the change actually took by checking `list_clients` — it reports the real effective mode per client, not just what you configured.
+
 ## Network Access
 
 By default CentralMind runs over stdio as a local subprocess of your MCP client. To make one instance reachable from other machines on your network, run it with the `http` transport (Streamable HTTP, per the current MCP spec):
@@ -315,7 +325,7 @@ CentralMind is built with defense-in-depth:
 - **IIFE token closure** — Auth tokens live in closure scope, unreachable by user code
 - **stdin token passing** — Tokens never written to disk or source files
 - **Network allowlist** — Execute mode only reaches configured API hosts
-- **API mode enforcement** — `readonly` blocks all writes (server-side, not bypassable); a per-client override can only narrow this further, never exceed the server's own launch-time setting
+- **API mode enforcement** — `readonly` blocks all writes (server-side, not bypassable); a per-client override can only narrow this further, never exceed the server's ceiling. That ceiling can be set via `CENTRALMIND_API_MODE`/`.env` (takes effect at next startup, requires editing the launch config) or, optionally, via the admin UI's Server Settings page (same restart requirement, but reachable by anyone who can open the admin UI, not just whoever controls the launch environment)
 - **Rate limiting** — 30 req/min, max 5 concurrent (configurable)
 - **Output scrubbing** — Tokens removed from all stdout/stderr/errors
 - **In-memory Auth** — Access tokens held in memory only

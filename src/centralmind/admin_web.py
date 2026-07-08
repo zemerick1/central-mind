@@ -59,6 +59,7 @@ button, .btn { padding: 0.4rem 0.9rem; border-radius: 4px; border: 1px solid #88
 .pill { display: inline-block; background: #eef; border-radius: 10px; padding: 0.1rem 0.6rem; font-size: 0.8rem; margin-right: 0.3rem; }
 .banner-ok { background: #e6ffed; border: 1px solid #3c3; padding: 0.6rem; border-radius: 6px; margin-bottom: 1rem; }
 .banner-err { background: #ffecec; border: 1px solid #c33; padding: 0.6rem; border-radius: 6px; margin-bottom: 1rem; }
+.banner-warn { background: #fff8e1; border: 1px solid #c90; padding: 0.6rem; border-radius: 6px; margin-bottom: 1rem; }
 .field-err { background: #ffecec; border: 1px solid #c33; padding: 0.3rem 0.6rem; margin: 0.2rem 0; border-radius: 4px; font-size: 0.85rem; }
 .hint { font-size: 0.85rem; color: #666; margin-top: 0.4rem; }
 .actions form { display: inline; }
@@ -246,7 +247,8 @@ def create_admin_app(clients_store: ClientsStore, admin_token: str) -> Starlette
             body = (
                 "<h1>CentralMind — Multi-Client Setup</h1>"
                 f'<p><a class="btn" href="/clients/new?token={html.escape(admin_token)}">+ Add client</a> '
-                f'<a class="btn" href="/tls?token={html.escape(admin_token)}">TLS certificate</a></p>'
+                f'<a class="btn" href="/tls?token={html.escape(admin_token)}">TLS certificate</a> '
+                f'<a class="btn" href="/server-settings?token={html.escape(admin_token)}">Server settings</a></p>'
                 f"{table}"
             )
             return _page("CentralMind Admin", body)
@@ -382,6 +384,72 @@ def create_admin_app(clients_store: ClientsStore, admin_token: str) -> Starlette
 
         return await gate_or(request, handler)
 
+    async def server_settings_page(request: Request):
+        async def handler(request: Request):
+            banner = ""
+            result = request.query_params.get("result")
+            if result:
+                banner = f'<div class="banner-ok">{html.escape(result)}</div>'
+
+            current = clients_store.get_server_api_mode()
+            options_html = "".join(
+                f'<option value="{value}"{" selected" if value == (current or "") else ""}>{html.escape(label)}</option>'
+                for value, label in API_MODE_CHOICES
+            )
+            current_summary = (
+                f"an admin override of <strong>{html.escape(current)}</strong>"
+                if current
+                else "<strong>no admin override</strong> — whatever <code>CENTRALMIND_API_MODE</code> "
+                "the server process was launched with applies (readonly if unset)"
+            )
+
+            body = (
+                "<h1>Server Settings</h1>"
+                f"{banner}"
+                '<div class="banner-warn">'
+                "<strong>Read before changing this:</strong>"
+                "<ul>"
+                "<li>This is the <strong>global ceiling</strong> for every client on this server — no client's own "
+                "per-client mode can ever exceed it, so raising it here raises the maximum for all of them at once.</li>"
+                "<li>This admin UI is a <strong>separate process</strong> from the actual running MCP server. "
+                "Saving a change here does <strong>not</strong> affect a server that's already running — it only "
+                "takes effect the <strong>next time the MCP server process itself is restarted</strong>.</li>"
+                "<li>Anyone who can reach this admin UI can change this setting — it was originally deliberately "
+                "hard to change (required editing a launch-time environment variable) specifically so raising it "
+                "was never a one-click accident. Making it web-editable trades away some of that friction for "
+                "convenience.</li>"
+                "<li>After restarting the server, confirm the change actually applied by calling "
+                "<code>list_clients</code> from an MCP session and checking the reported <code>api_mode</code> per client.</li>"
+                "</ul>"
+                "</div>"
+                f"<p>Currently: {current_summary}.</p>"
+                '<form method="post" action="/server-settings">'
+                '<label for="server_api_mode">Server API mode override</label>'
+                f'<select id="server_api_mode" name="server_api_mode">{options_html}</select>'
+                '<p class="hint">Choose "Inherit server default" to clear the override and go back to using '
+                "<code>CENTRALMIND_API_MODE</code> from the server's own launch configuration.</p>"
+                '<button type="submit">Save</button></form>'
+            )
+            return _page("Server Settings", body)
+
+        return await gate_or(request, handler)
+
+    async def server_settings_update(request: Request):
+        async def handler(request: Request):
+            form = await request.form()
+            raw = form.get("server_api_mode", "").strip()
+            if raw and raw not in API_MODE_ORDER:
+                return RedirectResponse(f"/server-settings?token={admin_token}", status_code=303)
+            clients_store.set_server_api_mode(raw or None)
+            message = quote(
+                f"Saved. This applies the next time the MCP server process is restarted "
+                f"(now set to: {raw or 'inherit server default'}).",
+                safe="",
+            )
+            return RedirectResponse(f"/server-settings?token={admin_token}&result={message}", status_code=303)
+
+        return await gate_or(request, handler)
+
     async def tls_page(request: Request):
         async def handler(request: Request):
             info = tls.cert_info()
@@ -468,6 +536,8 @@ def create_admin_app(clients_store: ClientsStore, admin_token: str) -> Starlette
             Route("/clients/{client_id}/delete", delete_client, methods=["POST"]),
             Route("/clients/{client_id}/set-default", set_default_client, methods=["POST"]),
             Route("/clients/{client_id}/test/{platform}", test_connection, methods=["POST"]),
+            Route("/server-settings", server_settings_page, methods=["GET"]),
+            Route("/server-settings", server_settings_update, methods=["POST"]),
             Route("/tls", tls_page, methods=["GET"]),
             Route("/tls/generate", tls_generate, methods=["POST"]),
             Route("/tls/import", tls_import, methods=["POST"]),

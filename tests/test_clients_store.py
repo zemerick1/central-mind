@@ -96,6 +96,21 @@ class TestApiKey:
         assert reopened.get_api_key() == "my-api-key"
 
 
+class TestServerApiModeOverride:
+    def test_defaults_to_none(self, store):
+        assert store.get_server_api_mode() is None
+
+    def test_set_and_persists_across_instances(self, store):
+        store.set_server_api_mode("readwrite")
+        reopened = ClientsStore(path=store.path, key_path=store.key_path)
+        assert reopened.get_server_api_mode() == "readwrite"
+
+    def test_clearing_sets_back_to_none(self, store):
+        store.set_server_api_mode("all")
+        store.set_server_api_mode(None)
+        assert store.get_server_api_mode() is None
+
+
 class TestMigrateFromEnv:
     def test_migrates_legacy_config_when_store_empty(self, store):
         config = SimpleNamespace(

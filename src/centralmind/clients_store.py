@@ -245,6 +245,24 @@ class ClientsStore:
         self._persist()
 
     # ------------------------------------------------------------------
+    # Server-wide API mode ceiling override.
+    #
+    # None (the default) means "no override" — the running server uses
+    # whatever CENTRALMIND_API_MODE it was launched with (or "readonly" if
+    # that's unset). Setting this here lets that ceiling be changed from the
+    # admin UI instead of editing .env, but it is read once at server
+    # startup — see __main__.py — so it only takes effect the next time the
+    # actual MCP server process is (re)started, not immediately.
+    # ------------------------------------------------------------------
+
+    def get_server_api_mode(self) -> Optional[str]:
+        return self._data.get("server_api_mode")
+
+    def set_server_api_mode(self, mode: Optional[str]) -> None:
+        self._data["server_api_mode"] = mode
+        self._persist()
+
+    # ------------------------------------------------------------------
     # Migration from legacy single-tenant .env / environment config
     # ------------------------------------------------------------------
 

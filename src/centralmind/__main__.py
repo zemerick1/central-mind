@@ -102,6 +102,19 @@ async def main(args: argparse.Namespace):
             f"Manage clients going forward with `centralmind admin`."
         )
 
+    # An admin-configured server API mode (set via `centralmind admin` ->
+    # Server Settings) overrides CENTRALMIND_API_MODE/.env for this launch.
+    # This is read once, here, at startup — changing it in the admin UI
+    # while this process is already running has no effect until it's
+    # restarted.
+    stored_api_mode = clients_store.get_server_api_mode()
+    if stored_api_mode:
+        logger.info(
+            f"Using server API mode '{stored_api_mode}' from the admin UI's Server Settings "
+            f"(overrides CENTRALMIND_API_MODE={config.centralmind_api_mode!r})."
+        )
+        config.centralmind_api_mode = stored_api_mode
+
     if clients_store.is_empty():
         print(
             "Error: No clients configured. Populate .env and restart, or run "
