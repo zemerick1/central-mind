@@ -81,7 +81,7 @@ class ServerConfig(BaseSettings):
         description="Path to Deno binary",
     )
     # Safety: restrict which HTTP methods the execute tool can use
-    # Default: read-only (GET only). Set to "read-write" or "all" for full access.
+    # Default: read-only (GET only). Set to "readwrite" or "all" for full access.
     # Options: "readonly" (GET only), "readwrite" (GET+POST+PUT+PATCH), "all" (includes DELETE)
     centralmind_api_mode: str = Field(
         default="readonly",
@@ -108,6 +108,16 @@ class ServerConfig(BaseSettings):
     centralmind_obfuscate_api: bool = Field(
         default=False,
         description="Obfuscate API spec at runtime for zero-knowledge testing",
+    )
+
+    # === NEW: Dynamic Enrichment Phase ===
+    centralmind_enable_enrichment: bool = Field(
+        default=True,
+        description="Enable automatic post-execution enrichment phase (blast radius, impact, correlations)",
+    )
+    centralmind_max_enrichment_calls: int = Field(
+        default=3,
+        description="Maximum additional JS calls allowed during enrichment phase",
     )
 
     def __init__(self, **kwargs):

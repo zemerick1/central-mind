@@ -9,9 +9,6 @@ CentralMind is a fork of [**MistMind**](https://github.com/nagarjun226/mistmind)
 - **HPE Networking Security Director Cloud (SDC)** (62+ endpoints)
 - **HPE Aruba Clearpass** (796+ endpoints)
 - **HPE Aruba Networking User Experience Insight (UXI)** (24+ endpoints)
-- **HPE Aruba Networking AOS-CX Switches** (672+ endpoints)
-  - *Note: AOS-CX supports dynamic endpoint generation. The Username and Password must be the same for every switch in the `.env` file.*
-- **HPE Axis Security** (70 endpoints)
 
 ---
 
@@ -43,7 +40,7 @@ CentralMind is a fork of [**MistMind**](https://github.com/nagarjun226/mistmind)
 
 Because [MistMind](https://github.com/nagarjun226/mistmind) works. It solved a real problem: making massive APIs usable by LLMs without blowing up context windows or requiring pre-training. The core insight — give the LLM a tiny index, a sandbox to search the full spec, and a secure way to execute calls — is elegant and generalizable.
 
-CentralMind takes that same approach and applies it to **HPE Aruba Networking Central, HPE Juniper Mist, HPE Networking Security Director Cloud, HPE Aruba Clearpass, HPE Aruba Networking UXI, and Axis Security**, which have their own challenges:
+CentralMind takes that same approach and applies it to **HPE Aruba Networking Central, HPE Juniper Mist, HPE Networking Security Director Cloud, HPE Aruba Clearpass, and HPE Aruba Networking UXI**, which have their own challenges:
 - **Thousands of endpoints** across different products
 - **Multiple Authentication schemes** (OAuth2 `client_credentials`, API keys, etc.)
 - **Fragmented specs** that needed consolidation
@@ -66,26 +63,26 @@ The progressive disclosure pattern from MistMind makes all of this manageable:
 └──────────────────────┬──────────────────────────────────────┘
                        │ MCP Protocol (stdio)
                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│  CentralMind MCP Server (Python)                            │
-│  ┌─────────────────┐  ┌──────────────────────────────────┐ │
-│  │  Spec Indexer   │  │  Deno Sandbox                    │ │
-│  │  • Analyzes     │  │  • --deny-net (search mode)      │ │
-│  │    OpenAPI      │  │  • --allow-net=<api hosts>       │ │
-│  │  • Generates    │  │  • Rate limiting (30/min)        │ │
-│  │    hierarchy    │  │  • Token isolation (IIFE)        │ │
-│  │  • Tiny index   │  │  • Output scrubbing              │ │
-│  └─────────────────┘  └──────────────────────────────────┘ │
-│  ┌─────────────────┐                                       │
-│  │  Auth Managers  │  Platform-specific Auth (OAuth2/Key)  │
-│  │  • Auto-auth    │  → In-memory, zero disk I/O           │
-│  │  • Auto-refresh │                                       │
-│  └─────────────────┘                                       │
-└──────────────┬──────────────────────┬───────────────────────┘
-               │                      │
-               ▼                      ▼
-    spec/*.resolved.json          Aruba Central, Mist,
-         (Local specs)            Clearpass, SDC, UXI, Axis APIs
+ ┌─────────────────────────────────────────────────────────────┐
+ │  CentralMind MCP Server (Python)                            │
+ │  ┌─────────────────┐  ┌──────────────────────────────────┐ │
+ │  │  Spec Indexer   │  │  Deno Sandbox                    │ │
+ │  │  • Analyzes     │  │  • --deny-net (search mode)      │ │
+ │  │    OpenAPI      │  │  • --allow-net=<api hosts>       │ │
+ │  │  • Generates    │  │  • Rate limiting (30/min)        │ │
+ │  │    hierarchy    │  │  • Token isolation (IIFE)        │ │
+ │  │  • Tiny index   │  │  • Output scrubbing              │ │
+ │  └─────────────────┘  └──────────────────────────────────┘ │
+ │  ┌─────────────────┐                                       │
+ │  │  Auth Managers  │  Platform-specific Auth (OAuth2/Key)  │
+ │  │  • Auto-auth    │  → In-memory, zero disk I/O           │
+ │  │  • Auto-refresh │                                       │
+ │  └─────────────────┘                                       │
+ └──────────────┬──────────────────────┬───────────────────────┘
+                │                      │
+                ▼                      ▼
+     spec/*.resolved.json          Aruba Central, Mist,
+          (Local specs)            Clearpass, SDC, UXI APIs
 ```
 
 ## How It Works
@@ -130,6 +127,9 @@ async () => {
 }
 ```
 
+### 5. Dynamic Enrichment (Analysis)
+After every primary `execute_*` tool call, if enabled, the server runs a heuristics-based enrichment analysis pass that automatically appends a structured `_enrichment` object to the tool results containing operational blast radius, risks, and recommendations.
+
 ## Quick Start
 
 ### 1. Prerequisites
@@ -158,7 +158,6 @@ python -m centralmind.spec_resolver spec/mist.openapi.json spec/mist.resolved.js
 python -m centralmind.spec_resolver spec/sdc.openapi.json spec/sdc.resolved.json
 python -m centralmind.spec_resolver spec/clearpass-openapi.json spec/clearpass-openapi.resolved.json
 python -m centralmind.spec_resolver spec/uxi.openapi.json spec/uxi.resolved.json
-python -m centralmind.spec_resolver spec/axis.openapi.json spec/axis.resolved.json
 ```
 
 ### 5a. Add to Claude Desktop
@@ -182,7 +181,6 @@ Add to your `claude_desktop_config.json`:
         "CLEARPASS_CLIENT_SECRET": "your-client-secret",
         "UXI_CLIENT_ID": "your-client-id",
         "UXI_CLIENT_SECRET": "your-client-secret",
-        "AXIS_APITOKEN": "your-axis-token",
         "CENTRALMIND_API_MODE": "readonly"
       }
     }
@@ -244,14 +242,11 @@ CentralMind is built with defense-in-depth:
 | `UXI_CLIENT_SECRET`| HPE Aruba Networking UXI OAuth2 client secret | |
 | `UXI_HOST`| HPE Aruba Networking UXI API host | `api.capenetworks.com` |
 | `UXI_VERIFY_SSL`| Verify SSL certificates for UXI | `true` |
-| `AXIS_APITOKEN`| Axis API token | |
-| `AXIS_HOST`| Axis API host | `admin-api.axissecurity.com` |
-| `AOSCX_USERNAME`| AOS-CX administrator username | |
-| `AOSCX_PASSWORD`| AOS-CX administrator password | |
-| `AOSCX_VERIFY_SSL`| Verify SSL certificates for AOS-CX | `false` |
 | `CENTRALMIND_API_MODE` | `readonly` / `readwrite` / `all` | `readonly` |
 | `CENTRALMIND_RATE_LIMIT` | Requests per minute (0=unlimited) | `30` |
 | `CENTRALMIND_MAX_CONCURRENT`| Max parallel sandbox processes | `5` |
+| `CENTRALMIND_ENABLE_ENRICHMENT` | Enable automatic post-execution enrichment phase (blast radius, impact, correlations) | `true` |
+| `CENTRALMIND_MAX_ENRICHMENT_CALLS` | Maximum additional JS calls allowed during enrichment phase | `3` |
 
 ## Development
 
