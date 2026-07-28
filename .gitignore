@@ -54,4 +54,4 @@ spec/openAPI.json.old
 fix_tests.py
 .FullName
 docs/*.md
-.agents/
+.agents/mcp_config.json
