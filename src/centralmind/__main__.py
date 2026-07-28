@@ -115,99 +115,61 @@ async def main(args: argparse.Namespace):
         print("Error: No valid authentication credentials provided for Central, ClearPass, Mist, SDC, UXI, or AOS-CX.", file=sys.stderr)
         sys.exit(1)
 
-    # Determine spec paths
+    # ================================================================
+    # Dynamic spec resolution: resolve any *.json that doesn't have
+    # a matching *.resolved.json yet
+    # ================================================================
     project_root = Path(__file__).parent.parent.parent
-    
-    central_spec_path = None
-    if central_auth:
-        if config.centralmind_spec_path:
-            central_spec_path = Path(config.centralmind_spec_path)
-        else:
-            central_spec_path = project_root / "spec" / "openAPI.resolved.json"
-            source_spec = project_root / "spec" / "openAPI.json"
-            
-            # Auto-resolve if source is newer than resolved, or resolved doesn't exist
-            if source_spec.exists():
-                needs_resolve = not central_spec_path.exists()
-                if not needs_resolve:
-                    needs_resolve = source_spec.stat().st_mtime > central_spec_path.stat().st_mtime
-                
-                if needs_resolve:
-                    logger.info("Source spec is newer than resolved spec. Auto-resolving...")
-                    try:
-                        from .spec_resolver import resolve_spec
-                        resolve_spec(str(source_spec), str(central_spec_path))
-                        logger.info("Spec auto-resolved successfully.")
-                    except Exception as e:
-                        logger.error(f"Auto-resolve failed: {e}")
-                        if not central_spec_path.exists():
-                            print(f"Error: Could not resolve central spec: {e}", file=sys.stderr)
-                            sys.exit(1)
-        
-        if not central_spec_path.exists():
-            print(f"Error: Resolved central spec not found at {central_spec_path}", file=sys.stderr)
-            sys.exit(1)
+    spec_dir = project_root / "spec"
 
-    clearpass_spec_path = None
-    if clearpass_auth:
-        clearpass_spec_path = project_root / "spec" / "clearpass-openapi.json"
-        if not clearpass_spec_path.exists():
-            print(f"Error: ClearPass spec not found at {clearpass_spec_path}", file=sys.stderr)
-            sys.exit(1)
+    resolved_spec_paths = {}
 
-    mist_spec_path = None
-    if mist_auth:
-        mist_spec_path = project_root / "spec" / "mist.resolved.json"
-        if not mist_spec_path.exists():
-            print(f"Error: Mist spec not found at {mist_spec_path}", file=sys.stderr)
-            sys.exit(1)
+    if spec_dir.exists():
+        for spec_file in sorted(spec_dir.glob("*.json")):
+            if ".resolved." in spec_file.name:
+                continue  # already a resolved file
 
-    axis_spec_path = None
-    if axis_auth:
-        axis_spec_path = project_root / "spec" / "axis.resolved.json"
-        if not axis_spec_path.exists():
-            print(f"Error: Axis spec not found at {axis_spec_path}", file=sys.stderr)
-            sys.exit(1)
+            resolved_file = spec_dir / f"{spec_file.stem}.resolved.json"
 
-    sdc_spec_path = None
-    if sdc_auth:
-        sdc_spec_path = project_root / "spec" / "sdc.resolved.json"
-        if not sdc_spec_path.exists():
-            print(f"Error: SDC spec not found at {sdc_spec_path}", file=sys.stderr)
-            sys.exit(1)
+            if not resolved_file.exists() or spec_file.stat().st_mtime > resolved_file.stat().st_mtime:
+                logger.info(f"Auto-resolving {spec_file.name} -> {resolved_file.name}")
+                try:
+                    from .spec_resolver import resolve_spec
+                    resolve_spec(str(spec_file), str(resolved_file))
+                    logger.info(f"Successfully resolved {spec_file.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-resolve {spec_file.name}: {e}")
 
-    uxi_spec_path = None
-    if uxi_auth:
-        uxi_spec_path = project_root / "spec" / "uxi.openapi.json"
-        if not uxi_spec_path.exists():
-            print(f"Error: UXI spec not found at {uxi_spec_path}", file=sys.stderr)
-            sys.exit(1)
+            if resolved_file.exists():
+                resolved_spec_paths[spec_file.stem] = str(resolved_file)
 
-    aoscx_spec_path = None
-    if aoscx_auth:
-        aoscx_spec_path = project_root / "spec" / "aoscx.openapi.json"
-        if not aoscx_spec_path.exists():
-            print(f"Error: AOS-CX spec not found at {aoscx_spec_path}", file=sys.stderr)
-            sys.exit(1)
+    # Map resolved specs to platforms (simple heuristic based on filename)
+    central_spec_path = resolved_spec_paths.get("openAPI") or resolved_spec_paths.get("platform")
+    clearpass_spec_path = resolved_spec_paths.get("clearpass-openapi")
+    mist_spec_path = resolved_spec_paths.get("mist")
+    axis_spec_path = resolved_spec_paths.get("axis")
+    sdc_spec_path = resolved_spec_paths.get("sdc")
+    uxi_spec_path = resolved_spec_paths.get("uxi")
+    aoscx_spec_path = resolved_spec_paths.get("aoscx")
 
     # Create and run server
     try:
         server = CentralMindServer(
             config=config,
             central_auth=central_auth,
-            central_spec_path=str(central_spec_path) if central_spec_path else None,
+            central_spec_path=central_spec_path,
             clearpass_auth=clearpass_auth,
-            clearpass_spec_path=str(clearpass_spec_path) if clearpass_spec_path else None,
+            clearpass_spec_path=clearpass_spec_path,
             mist_auth=mist_auth,
-            mist_spec_path=str(mist_spec_path) if mist_spec_path else None,
+            mist_spec_path=mist_spec_path,
             axis_auth=axis_auth,
-            axis_spec_path=str(axis_spec_path) if axis_spec_path else None,
+            axis_spec_path=axis_spec_path,
             sdc_auth=sdc_auth,
-            sdc_spec_path=str(sdc_spec_path) if sdc_spec_path else None,
+            sdc_spec_path=sdc_spec_path,
             uxi_auth=uxi_auth,
-            uxi_spec_path=str(uxi_spec_path) if uxi_spec_path else None,
+            uxi_spec_path=uxi_spec_path,
             aoscx_auth=aoscx_auth,
-            aoscx_spec_path=str(aoscx_spec_path) if aoscx_spec_path else None,
+            aoscx_spec_path=aoscx_spec_path,
         )
         await server.run()
     except KeyboardInterrupt:
