@@ -152,6 +152,14 @@ async def main(args: argparse.Namespace):
     uxi_spec_path = resolved_spec_paths.get("uxi")
     aoscx_spec_path = resolved_spec_paths.get("aoscx")
 
+    # CENTRALMIND_SPEC_PATH overrides the auto-resolved Central spec when set.
+    if config.centralmind_spec_path:
+        override = Path(config.centralmind_spec_path)
+        if not override.exists():
+            print(f"Error: Resolved central spec not found at {override}", file=sys.stderr)
+            sys.exit(1)
+        central_spec_path = str(override)
+
     # Create and run server
     try:
         server = CentralMindServer(
@@ -181,56 +189,164 @@ async def main(args: argparse.Namespace):
 
 def main_sync():
     """Synchronous entry point for setup.py console_scripts."""
+    # ── Step 1: lightweight pre-parse to detect whether a subcommand
+    #    was given.  This avoids the bug where `--env-file .env` (no
+    #    subcommand) is swallowed by the subparser as a positional arg,
+    #    producing "invalid choice: '/path/to/.env'".
+    _SUBCOMMANDS = {"serve", "fetch-specs"}
+    has_subcommand = any(tok in _SUBCOMMANDS for tok in sys.argv[1:])
+
+    if not has_subcommand:
+        # Legacy / backwards-compatible flat-arg invocation:
+        #   python -m centralmind --env-file .env --debug
+        # No subcommand → treat as "serve".
+        parser_compat = argparse.ArgumentParser(
+            description="CentralMind - Code Mode MCP Server for Aruba Central API",
+        )
+        parser_compat.add_argument(
+            "--version", action="version", version=f"centralmind {__version__}",
+        )
+        parser_compat.add_argument(
+            "--transport", choices=["stdio", "sse"], default="stdio",
+        )
+        parser_compat.add_argument("--host", default="127.0.0.1")
+        parser_compat.add_argument("--port", type=int, default=8000)
+        parser_compat.add_argument("--env-file", help="Path to .env file to load")
+        parser_compat.add_argument("--debug", action="store_true")
+        args = parser_compat.parse_args()
+
+        if args.transport != "stdio":
+            print("Error: Only stdio transport is currently supported", file=sys.stderr)
+            sys.exit(1)
+        asyncio.run(main(args))
+        return
+
+    # ── Step 2: full subcommand-aware parser ─────────────────────────
     parser = argparse.ArgumentParser(
         description="CentralMind - Code Mode MCP Server for Aruba Central API",
     )
-    
+
     parser.add_argument(
         "--version",
         action="version",
         version=f"centralmind {__version__}",
     )
-    
-    parser.add_argument(
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    # ── serve ────────────────────────────────────────────────────────
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Start the MCP server (default when no subcommand is given).",
+    )
+    serve_parser.add_argument(
         "--transport",
         choices=["stdio", "sse"],
         default="stdio",
         help="Transport type (default: stdio)",
     )
-    
-    parser.add_argument(
+    serve_parser.add_argument(
         "--host",
         default="127.0.0.1",
         help="Host for SSE transport (default: 127.0.0.1)",
     )
-    
-    parser.add_argument(
+    serve_parser.add_argument(
         "--port",
         type=int,
         default=8000,
         help="Port for SSE transport (default: 8000)",
     )
-    
-    parser.add_argument(
+    serve_parser.add_argument(
         "--env-file",
         help="Path to .env file to load",
     )
-    
-    parser.add_argument(
+    serve_parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug logging",
     )
-    
+
+    # ── fetch-specs ──────────────────────────────────────────────────
+    fetch_parser = subparsers.add_parser(
+        "fetch-specs",
+        help="Fetch OpenAPI specs from Aruba's developer hub.",
+    )
+    fetch_parser.add_argument(
+        "--central-only",
+        action="store_true",
+        help="Only fetch Central (MRT + Config) specs, skip platform specs.",
+    )
+    fetch_parser.add_argument(
+        "--resolve",
+        action="store_true",
+        help="Also run the $ref resolver after fetching.",
+    )
+    fetch_parser.add_argument(
+        "--spec-dir",
+        type=Path,
+        default=None,
+        help="Output directory for spec files (default: <project_root>/spec/).",
+    )
+    fetch_parser.add_argument(
+        "--no-verify-ssl",
+        action="store_true",
+        help="Disable SSL certificate verification (corporate proxy workaround).",
+    )
+    fetch_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging.",
+    )
+
     args = parser.parse_args()
-    
-    # For now, only stdio is implemented
-    if args.transport != "stdio":
-        print("Error: Only stdio transport is currently supported", file=sys.stderr)
-        sys.exit(1)
-    
-    # Run async main
-    asyncio.run(main(args))
+
+    if args.command == "serve":
+        if args.transport != "stdio":
+            print("Error: Only stdio transport is currently supported", file=sys.stderr)
+            sys.exit(1)
+        asyncio.run(main(args))
+
+    elif args.command == "fetch-specs":
+        from .spec_fetcher import _configure_ssl_verify, fetch_all_specs
+
+        logging.basicConfig(
+            level=logging.DEBUG if args.debug else logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%H:%M:%S",
+        )
+
+        _configure_ssl_verify(no_verify=args.no_verify_ssl)
+
+        spec_dir = args.spec_dir
+        if spec_dir is None:
+            spec_dir = Path(__file__).resolve().parent.parent.parent / "spec"
+
+        try:
+            summary = fetch_all_specs(
+                spec_dir,
+                central_only=args.central_only,
+                resolve=args.resolve,
+            )
+        except Exception as e:
+            logger.error(f"Spec fetch failed: {e}", exc_info=True)
+            sys.exit(1)
+
+        # Print summary
+        print("\n" + "═" * 60)
+        print("  Spec Fetch Summary")
+        print("═" * 60)
+        if summary.get("central"):
+            c = summary["central"]
+            print(f"  Central:    {c['size_mb']:.2f} MB  →  {c['path']}")
+        else:
+            print("  Central:    FAILED")
+        for slug, info in summary.get("platforms", {}).items():
+            print(f"  {slug:12s} {info['size_mb']:.2f} MB  →  {info['path']}")
+        if summary.get("resolved"):
+            print(f"\n  Resolved {len(summary['resolved'])} spec(s)")
+            for r in summary["resolved"]:
+                print(f"    → {r}")
+        print("═" * 60)
 
 
 if __name__ == "__main__":
