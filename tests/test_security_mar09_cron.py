@@ -69,7 +69,7 @@ class TestMar09CronCheenuAttacks:
         
         result = await sandbox.run_search(
             code=code,
-            spec_path="spec/openAPI.resolved.json"
+            spec_path="spec/central.resolved.json"
         )
         
         # Should succeed - timing info doesn't leak the token
@@ -330,7 +330,7 @@ class TestModuleNamespaceExoticObjects:
         
         result = await sandbox.run_search(
             code=code,
-            spec_path="spec/openAPI.resolved.json"
+            spec_path="spec/central.resolved.json"
         )
         
         # Should succeed - spec is intentionally accessible

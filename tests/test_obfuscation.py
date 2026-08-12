@@ -42,7 +42,7 @@ class TestObfuscation:
         """Create an obfuscated version of the Aruba Central spec."""
         spec_dir = Path(__file__).parent.parent / "spec"
         # Try resolved first, then raw
-        original_path = spec_dir / "openAPI.resolved.json"
+        original_path = spec_dir / "central.resolved.json"
         if not original_path.exists():
             original_path = spec_dir / "openAPI.json"
         if not original_path.exists():

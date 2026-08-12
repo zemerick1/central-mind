@@ -143,9 +143,9 @@ async def main(args: argparse.Namespace):
             if resolved_file.exists():
                 resolved_spec_paths[spec_file.stem] = str(resolved_file)
 
-    # Map resolved specs to platforms (simple heuristic based on filename)
-    central_spec_path = resolved_spec_paths.get("openAPI") or resolved_spec_paths.get("platform")
-    clearpass_spec_path = resolved_spec_paths.get("clearpass-openapi")
+    # Map resolved specs to platforms
+    central_spec_path = resolved_spec_paths.get("central") or resolved_spec_paths.get("openAPI") or resolved_spec_paths.get("platform")
+    clearpass_spec_path = resolved_spec_paths.get("clearpass") or resolved_spec_paths.get("clearpass-openapi")
     mist_spec_path = resolved_spec_paths.get("mist")
     axis_spec_path = resolved_spec_paths.get("axis")
     sdc_spec_path = resolved_spec_paths.get("sdc")

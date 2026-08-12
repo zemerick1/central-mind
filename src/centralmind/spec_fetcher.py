@@ -63,9 +63,9 @@ CENTRAL_PROJECTS: list[dict[str, str]] = [
 ]
 
 PLATFORM_PROJECTS: list[dict[str, str]] = [
-    {"slug": "uxi", "outfile": "uxi.openapi.json"},
-    {"slug": "cppm", "outfile": "clearpass-openapi.json"},
-    {"slug": "aoscx", "outfile": "aoscx.openapi.json"},
+    {"slug": "uxi", "outfile": "uxi.json"},
+    {"slug": "cppm", "outfile": "clearpass.json"},
+    {"slug": "aoscx", "outfile": "aoscx.json"},
 ]
 
 # ──────────────────────────────────────────────────────────────────────
@@ -358,11 +358,11 @@ def merge_specs(specs: list[dict[str, Any]], *, title: str | None = None) -> dic
 # Orchestration
 # ──────────────────────────────────────────────────────────────────────
 def fetch_central_spec(spec_dir: Path) -> Path:
-    """Fetch Central MRT + Config specs, merge, and write to spec_dir/openAPI.json.
+    """Fetch Central MRT + Config specs, merge, and write to spec_dir/central.json.
 
     Returns the path to the written file.
     """
-    output = spec_dir / "openAPI.json"
+    output = spec_dir / "central.json"
 
     logger.info("Fetching Central API specs from %s …", HUB)
     all_specs: list[dict[str, Any]] = []
@@ -374,7 +374,7 @@ def fetch_central_spec(spec_dir: Path) -> Path:
         all_specs.extend(specs)
 
     if not all_specs:
-        raise RuntimeError("No valid Central specs fetched — cannot generate openAPI.json")
+        raise RuntimeError("No valid Central specs fetched — cannot generate central.json")
 
     total_paths = sum(len(s.get("paths", {})) for s in all_specs)
     logger.info("Merging %d definition(s) (%d total paths) …", len(all_specs), total_paths)
@@ -472,8 +472,8 @@ def fetch_all_specs(
         from .spec_resolver import resolve_spec
 
         # Resolve Central
-        central_source = spec_dir / "openAPI.json"
-        central_resolved = spec_dir / "openAPI.resolved.json"
+        central_source = spec_dir / "central.json"
+        central_resolved = spec_dir / "central.resolved.json"
         if central_source.exists():
             logger.info("Resolving %s → %s …", central_source.name, central_resolved.name)
             try:
@@ -484,9 +484,12 @@ def fetch_all_specs(
 
         # Resolve platform specs that have a matching .resolved.json convention
         resolve_pairs = [
-            ("clearpass-openapi.json", "clearpass-openapi.resolved.json"),
-            ("aoscx.openapi.json", "aoscx.resolved.json"),
-            ("uxi.openapi.json", "uxi.resolved.json"),
+            ("clearpass.json", "clearpass.resolved.json"),
+            ("aoscx.json", "aoscx.resolved.json"),
+            ("uxi.json", "uxi.resolved.json"),
+            ("mist.json", "mist.resolved.json"),
+            ("axis.json", "axis.resolved.json"),
+            ("sdc.json", "sdc.resolved.json"),
         ]
         for source_name, resolved_name in resolve_pairs:
             source = spec_dir / source_name
