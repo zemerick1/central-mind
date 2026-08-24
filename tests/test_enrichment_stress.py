@@ -5,24 +5,25 @@ import time
 import pytest
 from mcp.types import TextContent
 
+from centralmind.clients_store import ClientsStore
 from centralmind.config import ServerConfig
 from centralmind.server import CentralMindServer
 
 
 @pytest.fixture
-def mock_server():
-    """Create a CentralMindServer with dynamic enrichment enabled."""
+def mock_server(tmp_path):
+    """Create a CentralMindServer with dynamic enrichment enabled.
+
+    _perform_enrichment/_detect_anomalies are pure data-transformation
+    methods (no credentials, no platform/client state involved), so an
+    empty clients_store/resolved_spec_paths is enough here.
+    """
     config = ServerConfig(
         centralmind_enable_enrichment=True,
         centralmind_max_enrichment_calls=3,
     )
-    server = CentralMindServer(config=config)
-    # Add a mock platform to platforms dictionary
-    server.platforms["central"] = {
-        "auth": None,
-        "sandbox": None,
-        "spec_path": None,
-    }
+    clients_store = ClientsStore(path=tmp_path / "clients.json", key_path=tmp_path / "secret.key")
+    server = CentralMindServer(config=config, clients_store=clients_store, resolved_spec_paths={})
     return server
 
 
