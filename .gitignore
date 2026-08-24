@@ -25,9 +25,12 @@ htmlcov/
 .tox/
 .nox/
 
-# Specs
+# Generated/resolved OpenAPI specs (produced by the $ref resolver; do not commit)
 *.resolved.json
-spec/*.resolved.json
+*.resolved.json.preConvert
+spec/*.resolved.*
+specs/*.resolved.*
+
 # IDEs
 .vscode/
 .idea/
@@ -43,10 +46,6 @@ spec/*.resolved.json
 .DS_Store
 Thumbs.db
 
-# Generated/resolved specs
-spec/openAPI.resolved.json
-spec/openAPI.resolved.json.preConvert
-
 # Large source files (Postman collections)
 spec/*.postman_collection.json
 spec/openAPI.json.old
@@ -54,3 +53,5 @@ spec/openAPI.json.old
 # Temporary fix scripts
 fix_tests.py
 .FullName
+docs/*.md
+.agents/mcp_config.json

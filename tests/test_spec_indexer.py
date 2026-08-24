@@ -78,7 +78,7 @@ def minimal_spec():
 @pytest.fixture
 def central_spec():
     """Load the real Aruba Central OpenAPI spec."""
-    spec_path = Path(__file__).parent.parent / "spec" / "openAPI.resolved.json"
+    spec_path = Path(__file__).parent.parent / "spec" / "central.resolved.json"
     if not spec_path.exists():
         spec_path = Path(__file__).parent.parent / "spec" / "openAPI.json"
     

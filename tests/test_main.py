@@ -220,6 +220,7 @@ class TestMainAsyncFunction:
         with patch("centralmind.__main__.load_dotenv"):
             with patch("centralmind.__main__.ServerConfig") as mock_config_cls:
                 mock_config_cls.return_value.centralmind_debug = False
+                mock_config_cls.return_value.centralmind_spec_path = None
                 with patch("centralmind.__main__.ClientsStore") as mock_store_cls:
                     mock_store_cls.return_value.migrate_from_env.return_value = None
                     mock_store_cls.return_value.is_empty.return_value = False
@@ -251,6 +252,7 @@ class TestMainAsyncFunction:
             with patch("centralmind.__main__.ServerConfig") as mock_config_cls:
                 mock_config_cls.return_value.centralmind_debug = False
                 mock_config_cls.return_value.centralmind_api_mode = "readonly"
+                mock_config_cls.return_value.centralmind_spec_path = None
                 with patch("centralmind.__main__.ClientsStore") as mock_store_cls:
                     mock_store_cls.return_value.migrate_from_env.return_value = None
                     mock_store_cls.return_value.is_empty.return_value = False

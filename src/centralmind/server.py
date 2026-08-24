@@ -28,9 +28,18 @@ logger = logging.getLogger(__name__)
 # normally happen — both stdio and streamable-http set it per connection).
 _FALLBACK_SESSION_KEY = "_no_request_context_"
 
+manual_analysis_prompt = (
+    "You are an expert network operations analyst performing deep operational analysis. "
+    "Provide rich, actionable insight on this result. Think broadly about operational impact, "
+    "dependencies, risks, and next steps. You may make additional targeted calls using the "
+    "client.request(...) pattern if you need more context."
+)
+
 
 class CentralMindServer:
     """CentralMind MCP server with Code Mode pattern, multi-client aware."""
+
+    manual_analysis_prompt = manual_analysis_prompt
 
     def __init__(
         self,
@@ -242,7 +251,10 @@ class CentralMindServer:
                     if name == f"search_{platform}":
                         return await self._handle_search(platform, arguments)
                     elif name == f"execute_{platform}":
-                        return await self._handle_execute(platform, arguments)
+                        primary_result = await self._handle_execute(platform, arguments)
+                        if getattr(self.config, "centralmind_enable_enrichment", True):
+                            return await self._perform_enrichment(platform, primary_result)
+                        return primary_result
 
                 return [
                     TextContent(
@@ -462,6 +474,174 @@ class CentralMindServer:
         result_text = json.dumps(result, indent=2)
 
         return [TextContent(type="text", text=result_text)]
+
+    # ------------------------------------------------------------------
+    # Dynamic Enrichment — a best-effort, heuristics-based post-execute
+    # analysis pass (offline/error signals, blast radius, recommendations).
+    # Platform-agnostic: operates purely on the JSON result, no credentials
+    # or client/platform state involved. Gated by centralmind_enable_enrichment.
+    # ------------------------------------------------------------------
+
+    def _detect_anomalies(self, data: Any):
+        """Iteratively inspect data for offline/down devices and errors."""
+        offline_count = 0
+        errors_found = []
+
+        offline_keywords = {"offline", "down", "disconnected", "critical", "failed"}
+        error_keywords = {"error", "unauthorized"}
+
+        stack = [data]
+
+        while stack:
+            curr = stack.pop()
+            if isinstance(curr, dict):
+                device_offline = False
+
+                # Non-JSON error detection: scan raw_output if present
+                if "raw_output" in curr:
+                    raw_val = curr["raw_output"]
+                    if isinstance(raw_val, str):
+                        raw_val_lower = raw_val.lower()
+                        for err_kw in error_keywords:
+                            if err_kw in raw_val_lower:
+                                errors_found.append(f"raw_output contains error keyword: {err_kw}")
+
+                for k, v in curr.items():
+                    k_lower = str(k).lower()
+
+                    # Check keys for error/unauthorized
+                    for err_kw in error_keywords:
+                        if err_kw in k_lower:
+                            # Skip flagging keys containing "error" or "unauthorized" as errors if their value v is in (None, False, 0, "", [], {})
+                            if v in (None, False, 0, "", [], {}):
+                                continue
+
+                            if isinstance(v, (dict, list, tuple, set)):
+                                v_str = f"<{type(v).__name__} of length {len(v)}>"
+                            else:
+                                v_str = str(v)
+                            if len(v_str) > 200:
+                                v_str = v_str[:200]
+                            errors_found.append(f"Key '{k}' contains anomaly keyword: {v_str}")
+
+                    if k_lower in ("status", "state", "device_status", "status_code", "power_status", "oper_state"):
+                        if isinstance(v, str):
+                            v_lower = v.lower()
+                            if v_lower in offline_keywords:
+                                device_offline = True
+
+                    if k_lower in ("online", "connected"):
+                        if v == False or v == 0 or (isinstance(v, str) and v.lower() in {"offline", "disconnected", "down", "false"}):
+                            device_offline = True
+
+                if device_offline:
+                    offline_count += 1
+
+                # Push child containers to stack for iterative traversal
+                for v in curr.values():
+                    if isinstance(v, (dict, list)):
+                        stack.append(v)
+
+            elif isinstance(curr, list):
+                for item in curr:
+                    if isinstance(item, (dict, list)):
+                        stack.append(item)
+
+        return offline_count, errors_found
+
+    async def _perform_enrichment(self, platform: str, primary_result: list[TextContent]) -> list[TextContent]:
+        """Perform heuristics-based enrichment analysis pass on execute result."""
+        if not primary_result or not isinstance(primary_result, list) or primary_result[0].text is None:
+            return primary_result
+
+        try:
+            raw_text = primary_result[0].text
+            # Try parsing the primary result as JSON
+            try:
+                data = json.loads(raw_text)
+            except Exception:
+                # If not valid JSON, wrap it in a dict
+                data = {"raw_output": raw_text}
+
+            # Run heuristics to detect offline devices and errors
+            offline_count, errors_found = self._detect_anomalies(data)
+
+            # Determine blast radius and client impact
+            if offline_count > 0 or errors_found:
+                if offline_count == 1:
+                    blast_radius = "Medium"
+                elif 1 < offline_count <= 5:
+                    blast_radius = "High"
+                elif offline_count > 5:
+                    blast_radius = "Critical"
+                else:  # Only errors found, no offline devices
+                    blast_radius = "Medium"
+
+                client_count = offline_count * 15
+                client_impact = {
+                    "count": client_count,
+                    "description": f"Potential service disruption affecting approximately {client_count} clients due to {offline_count} offline/down devices."
+                }
+
+                # Structured recommendations and risks
+                risks = []
+                recommendations = []
+                if offline_count > 0:
+                    risks.extend([
+                        f"Loss of network connectivity for clients connected to the {offline_count} offline devices.",
+                        "Degraded wireless/wired coverage in the physical areas serviced by these devices.",
+                        "Potential cascading failures if these devices are critical infrastructure (gateways/switches)."
+                    ])
+                    recommendations.extend([
+                        "Initiate a ping test to the offline devices to verify IP reachability.",
+                        "Verify physical connectivity (cables, switch ports) and power status (PoE budget, power cycle).",
+                        "Check device logs and console output for crash information or boot loops.",
+                        "Review recent configuration changes or firmware updates applied to these devices."
+                    ])
+                if errors_found:
+                    risks.append("API request error, failure, or unauthorized access preventing successful management operations.")
+                    recommendations.append("Verify API credentials, permissions, and network path to the API endpoint.")
+
+                correlations = []
+                if offline_count > 0:
+                    correlations.append(f"Multiple offline events detected across {offline_count} devices, suggesting potential power or upstream switch issues.")
+                if errors_found:
+                    correlations.append("API communication errors correlated with authorization/access key issues.")
+
+                enrichment = {
+                    "impact_summary": f"Detected {offline_count} offline devices and {len(errors_found)} errors. Action required.",
+                    "blast_radius": blast_radius,
+                    "client_impact": client_impact,
+                    "correlations": correlations,
+                    "risks": risks,
+                    "recommendations": recommendations,
+                    "manual_analysis_prompt": self.manual_analysis_prompt,
+                }
+            else:
+                # Healthy system
+                enrichment = {
+                    "impact_summary": "System appears healthy with no offline devices or operational errors detected.",
+                    "blast_radius": "Low",
+                    "client_impact": {
+                        "count": 0,
+                        "description": "No operational client impact detected."
+                    },
+                    "correlations": [],
+                    "risks": ["Standard low-risk operations. No anomalies detected."],
+                    "recommendations": ["No recommendations needed. Standard monitoring continues."],
+                    "manual_analysis_prompt": self.manual_analysis_prompt,
+                }
+
+            # Append _enrichment to data
+            data["_enrichment"] = enrichment
+
+            # Format and return updated TextContent
+            return [TextContent(type="text", text=json.dumps(data, indent=2))]
+
+        except Exception as e:
+            logger.warning(f"Enrichment pass failed: {e}")
+            # If enrichment fails, we return the original result to not block tool execution
+            return primary_result
 
     # ------------------------------------------------------------------
     # Transports

@@ -55,20 +55,20 @@ def _resolve_spec_paths(config: ServerConfig) -> dict:
             if resolved_file.exists():
                 resolved_spec_paths[spec_file.stem] = str(resolved_file)
 
-    # Map resolved specs to platform keys (simple heuristic based on filename)
+    # Map resolved specs to platform keys. Specs were renamed from
+    # *.openapi.json to *.json (e.g. spec/central.json, spec/clearpass.json)
+    # — the clean stems are checked first, with the old names kept as a
+    # fallback for anyone still on pre-rename spec files.
     platform_paths = {}
-    if "openAPI" in resolved_spec_paths or "platform" in resolved_spec_paths:
-        platform_paths["central"] = resolved_spec_paths.get("openAPI") or resolved_spec_paths.get("platform")
-    for platform, stem in [
-        ("clearpass", "clearpass-openapi"),
-        ("mist", "mist"),
-        ("axis", "axis"),
-        ("sdc", "sdc"),
-        ("uxi", "uxi"),
-        ("aoscx", "aoscx"),
-    ]:
-        if stem in resolved_spec_paths:
-            platform_paths[platform] = resolved_spec_paths[stem]
+    central_stem = resolved_spec_paths.get("central") or resolved_spec_paths.get("openAPI") or resolved_spec_paths.get("platform")
+    if central_stem:
+        platform_paths["central"] = central_stem
+    clearpass_stem = resolved_spec_paths.get("clearpass") or resolved_spec_paths.get("clearpass-openapi")
+    if clearpass_stem:
+        platform_paths["clearpass"] = clearpass_stem
+    for platform in ("mist", "axis", "sdc", "uxi", "aoscx"):
+        if platform in resolved_spec_paths:
+            platform_paths[platform] = resolved_spec_paths[platform]
 
     return platform_paths
 
@@ -124,6 +124,14 @@ async def main(args: argparse.Namespace):
         sys.exit(1)
 
     resolved_spec_paths = _resolve_spec_paths(config)
+
+    # CENTRALMIND_SPEC_PATH overrides the auto-resolved Central spec when set.
+    if config.centralmind_spec_path:
+        override = Path(config.centralmind_spec_path)
+        if not override.exists():
+            print(f"Error: Resolved central spec not found at {override}", file=sys.stderr)
+            sys.exit(1)
+        resolved_spec_paths["central"] = str(override)
 
     try:
         server = CentralMindServer(
@@ -224,12 +232,117 @@ def _main_tls(argv: list):
         print(f"Generated new self-signed certificate at {tls.DEFAULT_CERT_PATH}")
 
 
+def _add_serve_args(serve_parser: argparse.ArgumentParser) -> None:
+    """Shared flag definitions for both the legacy flat invocation and the
+    explicit `serve` subcommand — kept in one place so the two stay in sync."""
+    serve_parser.add_argument(
+        "--transport",
+        choices=["stdio", "http", "sse"],
+        default="stdio",
+        help="Transport type (default: stdio)",
+    )
+    serve_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host for http transport (default: 127.0.0.1; use 0.0.0.0 for LAN access)",
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for http transport (default: 8000)",
+    )
+    serve_parser.add_argument(
+        "--api-key",
+        default=None,
+        help="API key required of http transport clients (Authorization: Bearer <key>). "
+        "Auto-generated and persisted if omitted.",
+    )
+    serve_parser.add_argument(
+        "--no-tls",
+        action="store_true",
+        help="Serve plain HTTP for the http transport instead of HTTPS "
+        "(e.g. when a reverse proxy already terminates TLS). Ignored for stdio.",
+    )
+    serve_parser.add_argument(
+        "--cert",
+        default=None,
+        help="Path to a TLS certificate (PEM) to use for this run, instead of the stored one. "
+        "Must be given together with --key. Use `centralmind tls import` to install one permanently.",
+    )
+    serve_parser.add_argument(
+        "--key",
+        default=None,
+        help="Path to the matching unencrypted private key (PEM) for --cert.",
+    )
+    serve_parser.add_argument(
+        "--env-file",
+        help="Path to .env file to load",
+    )
+    serve_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+
+
+def _reject_sse(args: argparse.Namespace) -> None:
+    if args.transport == "sse":
+        print(
+            "Error: 'sse' transport has been replaced by 'http' (Streamable HTTP, per the "
+            "current MCP spec). Only 'stdio' and 'http' are supported.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _run_fetch_specs(args: argparse.Namespace) -> None:
+    from .spec_fetcher import _configure_ssl_verify, fetch_all_specs
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    _configure_ssl_verify(no_verify=args.no_verify_ssl)
+
+    spec_dir = args.spec_dir
+    if spec_dir is None:
+        spec_dir = Path(__file__).resolve().parent.parent.parent / "spec"
+
+    try:
+        summary = fetch_all_specs(
+            spec_dir,
+            central_only=args.central_only,
+            resolve=args.resolve,
+        )
+    except Exception as e:
+        logger.error(f"Spec fetch failed: {e}", exc_info=True)
+        sys.exit(1)
+
+    print("\n" + "═" * 60)
+    print("  Spec Fetch Summary")
+    print("═" * 60)
+    if summary.get("central"):
+        c = summary["central"]
+        print(f"  Central:    {c['size_mb']:.2f} MB  →  {c['path']}")
+    else:
+        print("  Central:    FAILED")
+    for slug, info in summary.get("platforms", {}).items():
+        print(f"  {slug:12s} {info['size_mb']:.2f} MB  →  {info['path']}")
+    if summary.get("resolved"):
+        print(f"\n  Resolved {len(summary['resolved'])} spec(s)")
+        for r in summary["resolved"]:
+            print(f"    → {r}")
+    print("═" * 60)
+
+
 def main_sync():
     """Synchronous entry point for setup.py console_scripts."""
     # `centralmind admin [...]` / `centralmind tls ...` are handled as distinct,
-    # minimal parsers so the default (no subcommand) invocation below keeps its
-    # exact existing flag surface for backward compatibility with existing MCP
-    # client configs.
+    # minimal parsers up front so they keep working regardless of the
+    # serve/fetch-specs subcommand machinery below.
     if len(sys.argv) > 1 and sys.argv[1] == "admin":
         admin_parser = argparse.ArgumentParser(
             prog="centralmind admin",
@@ -245,6 +358,33 @@ def main_sync():
         _main_tls(sys.argv[2:])
         return
 
+    # ── Step 1: lightweight pre-parse to detect whether a subcommand was
+    #    given. This avoids the bug where `--env-file .env` (no subcommand)
+    #    is swallowed by the subparser as a positional arg, producing
+    #    "invalid choice: '/path/to/.env'".
+    _SUBCOMMANDS = {"serve", "fetch-specs"}
+    has_subcommand = any(tok in _SUBCOMMANDS for tok in sys.argv[1:])
+
+    if not has_subcommand:
+        # Legacy / backwards-compatible flat-arg invocation:
+        #   python -m centralmind --env-file .env --debug
+        # No subcommand → treat as "serve". Existing MCP client configs
+        # (Claude Desktop, etc.) rely on this shape, so it carries the full
+        # serve flag set, not just the subset upstream originally had.
+        parser_compat = argparse.ArgumentParser(
+            description="CentralMind - Code Mode MCP Server for Aruba Central API",
+        )
+        parser_compat.add_argument(
+            "--version", action="version", version=f"centralmind {__version__}",
+        )
+        _add_serve_args(parser_compat)
+        args = parser_compat.parse_args()
+
+        _reject_sse(args)
+        asyncio.run(main(args))
+        return
+
+    # ── Step 2: full subcommand-aware parser ─────────────────────────
     parser = argparse.ArgumentParser(
         description="CentralMind - Code Mode MCP Server for Aruba Central API",
     )
@@ -255,76 +395,54 @@ def main_sync():
         version=f"centralmind {__version__}",
     )
 
-    parser.add_argument(
-        "--transport",
-        choices=["stdio", "http", "sse"],
-        default="stdio",
-        help="Transport type (default: stdio)",
-    )
+    subparsers = parser.add_subparsers(dest="command")
 
-    parser.add_argument(
-        "--host",
-        default="127.0.0.1",
-        help="Host for http transport (default: 127.0.0.1; use 0.0.0.0 for LAN access)",
+    # ── serve ────────────────────────────────────────────────────────
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Start the MCP server (default when no subcommand is given).",
     )
+    _add_serve_args(serve_parser)
 
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="Port for http transport (default: 8000)",
+    # ── fetch-specs ──────────────────────────────────────────────────
+    fetch_parser = subparsers.add_parser(
+        "fetch-specs",
+        help="Fetch OpenAPI specs from Aruba's developer hub.",
     )
-
-    parser.add_argument(
-        "--api-key",
-        default=None,
-        help="API key required of http transport clients (Authorization: Bearer <key>). "
-        "Auto-generated and persisted if omitted.",
-    )
-
-    parser.add_argument(
-        "--no-tls",
+    fetch_parser.add_argument(
+        "--central-only",
         action="store_true",
-        help="Serve plain HTTP for the http transport instead of HTTPS "
-        "(e.g. when a reverse proxy already terminates TLS). Ignored for stdio.",
+        help="Only fetch Central (MRT + Config) specs, skip platform specs.",
     )
-
-    parser.add_argument(
-        "--cert",
+    fetch_parser.add_argument(
+        "--resolve",
+        action="store_true",
+        help="Also run the $ref resolver after fetching.",
+    )
+    fetch_parser.add_argument(
+        "--spec-dir",
+        type=Path,
         default=None,
-        help="Path to a TLS certificate (PEM) to use for this run, instead of the stored one. "
-        "Must be given together with --key. Use `centralmind tls import` to install one permanently.",
+        help="Output directory for spec files (default: <project_root>/spec/).",
     )
-
-    parser.add_argument(
-        "--key",
-        default=None,
-        help="Path to the matching unencrypted private key (PEM) for --cert.",
+    fetch_parser.add_argument(
+        "--no-verify-ssl",
+        action="store_true",
+        help="Disable SSL certificate verification (corporate proxy workaround).",
     )
-
-    parser.add_argument(
-        "--env-file",
-        help="Path to .env file to load",
-    )
-
-    parser.add_argument(
+    fetch_parser.add_argument(
         "--debug",
         action="store_true",
-        help="Enable debug logging",
+        help="Enable debug logging.",
     )
 
     args = parser.parse_args()
 
-    if args.transport == "sse":
-        print(
-            "Error: 'sse' transport has been replaced by 'http' (Streamable HTTP, per the "
-            "current MCP spec). Only 'stdio' and 'http' are supported.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    # Run async main
-    asyncio.run(main(args))
+    if args.command == "serve":
+        _reject_sse(args)
+        asyncio.run(main(args))
+    elif args.command == "fetch-specs":
+        _run_fetch_specs(args)
 
 
 if __name__ == "__main__":

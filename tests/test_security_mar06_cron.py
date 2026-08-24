@@ -73,7 +73,7 @@ class TestMar06CronCheenuAttacks:
         # Run in search mode (no API token)
         result = await sandbox.run_search(
             code,
-            spec_path="spec/openAPI.resolved.json"
+            spec_path="spec/central.resolved.json"
         )
         
         # Should be blocked by --deny-env and --deny-read
@@ -272,7 +272,7 @@ class TestDenoModuleResolutionSideChannel:
         
         result = await sandbox.run_search(
             code,
-            spec_path="spec/openAPI.resolved.json"
+            spec_path="spec/central.resolved.json"
         )
         
         # All imports should fail due to --deny-read
@@ -328,7 +328,7 @@ class TestProcessSignalManipulation:
         
         result = await sandbox.run_search(
             code,
-            spec_path="spec/openAPI.resolved.json"
+            spec_path="spec/central.resolved.json"
         )
         
         # Should timeout (5 seconds) and be killed

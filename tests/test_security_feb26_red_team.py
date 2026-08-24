@@ -306,7 +306,7 @@ class TestResourceAmplificationAttacks:
         
         result = await sandbox.run_search(
             code=code,
-            spec_path="spec/openAPI.resolved.json",
+            spec_path="spec/central.resolved.json",
         )
         
         # Should either timeout or hit memory limit
