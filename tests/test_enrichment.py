@@ -1,29 +1,31 @@
 """Unit tests for the Dynamic Enrichment Phase."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
+from mcp import types as mcp_types
 from mcp.types import TextContent
 
+from centralmind.clients_store import ClientsStore
 from centralmind.config import ServerConfig
 from centralmind.server import CentralMindServer
 
 
 @pytest.fixture
-def mock_server():
-    """Create a CentralMindServer with dynamic enrichment enabled."""
+def mock_server(tmp_path):
+    """Create a CentralMindServer with dynamic enrichment enabled.
+
+    _perform_enrichment/_detect_anomalies are pure data-transformation
+    methods (no credentials, no platform/client state involved), so an
+    empty clients_store/resolved_spec_paths is enough here.
+    """
     config = ServerConfig(
         centralmind_enable_enrichment=True,
         centralmind_max_enrichment_calls=3,
     )
-    server = CentralMindServer(config=config)
-    # Add a mock platform to platforms dictionary
-    server.platforms["central"] = {
-        "auth": MagicMock(),
-        "sandbox": MagicMock(),
-        "spec_path": MagicMock(),
-    }
+    clients_store = ClientsStore(path=tmp_path / "clients.json", key_path=tmp_path / "secret.key")
+    server = CentralMindServer(config=config, clients_store=clients_store, resolved_spec_paths={})
     return server
 
 
@@ -158,12 +160,16 @@ async def test_enrichment_skipped_when_disabled(mock_server):
     mock_server._handle_execute = AsyncMock(
         return_value=[TextContent(type="text", text=json.dumps(data))]
     )
-    
-    # Retrieve the list/call the call_tool handler
-    call_tool_handler = mock_server.server._call_tool_handler
-    assert call_tool_handler is not None
-    
-    response = await call_tool_handler("execute_central", {"code": "mock"})
+
+    # Invoke the real registered call_tool handler via the MCP SDK's public
+    # request-dispatch table (same mechanism the SDK itself uses at runtime).
+    call_tool_handler = mock_server.server.request_handlers[mcp_types.CallToolRequest]
+    req = mcp_types.CallToolRequest(
+        method="tools/call",
+        params=mcp_types.CallToolRequestParams(name="execute_central", arguments={"code": "mock"}),
+    )
+    resp = await call_tool_handler(req)
+    response = resp.root.content
     assert len(response) == 1
     
     result_data = json.loads(response[0].text)

@@ -342,9 +342,18 @@ class TestAsyncContextManipulation:
         result_str = json.dumps(result)
         assert SECRET_TOKEN not in result_str
         
-        # If headers were captured, Authorization should be scrubbed
-        if result.get("captured", {}).get("headers"):
-            headers = result["captured"]["headers"]
+        # If headers were captured, Authorization should be scrubbed.
+        # NOTE: `captured` is `null` in practice — fetch() constructs its
+        # request internally per the WHATWG spec and never invokes a
+        # user-overridden `globalThis.Request`, so this hijack attempt
+        # cannot capture anything on any Deno version. `.get("captured", {})`
+        # only falls back to `{}` when the key is *missing*; since the key
+        # is present with an explicit `null` value, it returns None instead,
+        # so we must guard for that explicitly rather than relying on the
+        # dict.get default.
+        captured = result.get("captured") or {}
+        if captured.get("headers"):
+            headers = captured["headers"]
             if isinstance(headers, dict):
                 assert headers.get("Authorization") != f"Token {SECRET_TOKEN}"
 
